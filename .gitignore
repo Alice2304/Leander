@@ -1,0 +1,41 @@
+# Node modules
+node_modules/
+
+# Build output
+.next/
+out/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Env files
+.env*
+
+# VSCode settings
+.vscode/
+
+# Optional: local coverage reports
+coverage/
+
+# Optional: local test reports
+*.lcov
+
+# Optional: next export
+exported/
+
+# Optional: Mac system files
+*.DS_Store
+
+# Optional: Windows system files
+*.log
+*.tmp
+
+# Optional: ignore public runtime config
+public/runtime-config.json
