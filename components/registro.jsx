@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { registerUser } from "@/lib/fetch/user"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -15,6 +16,7 @@ export default function Registro() {
     email: "",
     password: "",
     fullName: "",
+    surname: "",
     username: "",
     acceptTerms: false,
   })
@@ -45,11 +47,34 @@ export default function Registro() {
     }
   }
 
-  const handleSubmit = (e) => {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [success, setSuccess] = useState(false)
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    console.log("Form data:", formData)
-    console.log("Profile image:", profileImage)
-    // Aquí iría la lógica de registro
+    setLoading(true)
+    setError("")
+    setSuccess(false)
+    try {
+      const params = {
+        name: formData.fullName,
+        surname: formData.surname,
+        nick: formData.username,
+        email: formData.email,
+        password: formData.password,
+        // image: null // Si quieres enviar la imagen, deberías manejar el upload real
+      }
+      await registerUser(params)
+      setSuccess(true)
+      // Mostrar alerta y redirigir
+      alert("¡Registro exitoso! Serás redirigido al inicio de sesión.")
+      window.location.href = "/"
+    } catch (err) {
+      setError(err?.message || "Error al registrar usuario")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -125,7 +150,7 @@ export default function Registro() {
             {/* Full Name Field */}
             <div className="space-y-2">
               <Label htmlFor="fullName" className="text-gray-300">
-                Nombre completo
+                Nombre
               </Label>
               <Input
                 id="fullName"
@@ -134,7 +159,23 @@ export default function Registro() {
                 value={formData.fullName}
                 onChange={handleInputChange}
                 className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 focus:border-blue-500"
-                placeholder="Juan Pérez"
+                placeholder="Juan"
+                required
+              />
+            </div>
+            {/* Surname Field */}
+            <div className="space-y-2">
+              <Label htmlFor="surname" className="text-gray-300">
+                Apellido
+              </Label>
+              <Input
+                id="surname"
+                name="surname"
+                type="text"
+                value={formData.surname}
+                onChange={handleInputChange}
+                className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 focus:border-blue-500"
+                placeholder="Pérez"
                 required
               />
             </div>
@@ -180,12 +221,18 @@ export default function Registro() {
             </div>
 
             {/* Submit Button */}
+            {error && (
+              <div className="text-red-500 text-sm text-center">{error}</div>
+            )}
+            {success && (
+              <div className="text-green-500 text-sm text-center">¡Registro exitoso!</div>
+            )}
             <Button
               type="submit"
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5"
-              disabled={!formData.acceptTerms}
+              disabled={!formData.acceptTerms || loading}
             >
-              Registrarse
+              {loading ? "Registrando..." : "Registrarse"}
             </Button>
           </form>
 

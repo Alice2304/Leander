@@ -5,7 +5,7 @@ export function LogoutRedirect({ children }) {
   const router = useRouter();
   const handleClick = (e) => {
     e.preventDefault();
-    router.push("/login");
+    router.push("/");
   };
   return children(handleClick);
 }

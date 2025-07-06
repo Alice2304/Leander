@@ -1,11 +1,13 @@
 "use client"
 
+import { useState, useRef } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Settings, Edit3, MoreHorizontal, Heart, MessageCircle, Share } from "lucide-react"
-
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
+import { Plus, Camera, X, ImageIcon, Settings, Edit3, MoreHorizontal, Heart, MessageCircle, Share } from "lucide-react"
 export default function SocialFeed() {
-  const posts = [
+  const [posts, setPosts] = useState([
     {
       id: 1,
       user: {
@@ -54,12 +56,188 @@ export default function SocialFeed() {
       shares: 11,
       timestamp: "6h ago",
     },
-  ]
+  ])
+
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [newPost, setNewPost] = useState({
+    title: "",
+    description: "",
+    image: "",
+    user: {
+      name: "Usuario",
+      avatar: "",
+      username: "@usuario"
+    },
+    likes: 0,
+    comments: 0,
+    shares: 0,
+    timestamp: "ahora"
+  })
+  const imageInputRef = useRef(null)
+
+  const handleFileUpload = (file) => {
+    if (file && file.type.startsWith("image/")) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setNewPost({ ...newPost, image: e.target.result })
+      }
+      reader.readAsDataURL(file)
+    } else {
+      alert("Por favor selecciona un archivo de imagen válido")
+    }
+  }
+
+  const openFileSelector = () => {
+    imageInputRef.current?.click()
+  }
+
+  const handleCreatePost = () => {
+    if (newPost.title && newPost.description) {
+      const post = {
+        ...newPost,
+        id: Date.now(),
+        image: newPost.image || "/placeholder.svg",
+        user: {
+          ...newPost.user,
+          avatar: newPost.user.avatar || "/placeholder.svg",
+        },
+        likes: 0,
+        comments: 0,
+        shares: 0,
+        timestamp: "ahora"
+      }
+      setPosts([post, ...posts])
+      setNewPost({
+        title: "",
+        description: "",
+        image: "",
+        user: {
+          name: "Usuario",
+          avatar: "",
+          username: "@usuario"
+        },
+        likes: 0,
+        comments: 0,
+        shares: 0,
+        timestamp: "ahora"
+      })
+      setIsCreateDialogOpen(false)
+    }
+  }
 
   return (
     <div className="max-w-2xl mx-auto p-4 space-y-6">
-      <h1 className="text-3xl font-bold text-center mb-8 text-slate-100">Social Feed</h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold text-slate-100">Social Feed</h1>
+        <Button
+          onClick={() => setIsCreateDialogOpen(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white flex-shrink-0"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Crear publicación
+        </Button>
+      </div>
 
+      {/* Dialog para crear publicación */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-lg">
+          <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <DialogTitle className="text-xl font-bold">Crear publicación</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* User Profile Section */}
+            <div className="flex items-center space-x-3 pb-4 border-b border-slate-700">
+              <img
+                src={newPost.user.avatar || "/placeholder.svg?height=40&width=40"}
+                alt="Profile"
+                className="w-10 h-10 rounded-full object-cover"
+              />
+              <div>
+                <h3 className="text-white font-semibold">{newPost.user.name}</h3>
+                <div className="flex items-center space-x-1 text-sm text-slate-400">
+                  <span>Público</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Main Content Area */}
+            <div className="space-y-4">
+              <input
+                type="text"
+                value={newPost.title}
+                onChange={e => setNewPost({ ...newPost, title: e.target.value })}
+                className="w-full bg-transparent border-b border-slate-600 text-white text-lg focus:outline-none mb-2 p-1"
+                placeholder="Título de la publicación"
+              />
+              <Textarea
+                value={newPost.description}
+                onChange={e => setNewPost({ ...newPost, description: e.target.value })}
+                className="bg-transparent border-none text-white text-lg resize-none focus:ring-0 focus:outline-none p-0"
+                placeholder="¿Qué quieres compartir?"
+                rows={3}
+              />
+            </div>
+
+            {/* Image Preview */}
+            {newPost.image && (
+              <div className="relative">
+                <img
+                  src={newPost.image || "/placeholder.svg"}
+                  alt="Preview"
+                  className="w-full h-48 object-cover rounded-lg"
+                />
+                <button
+                  onClick={() => setNewPost({ ...newPost, image: "" })}
+                  className="absolute top-2 right-2 bg-black bg-opacity-50 rounded-full p-1 hover:bg-opacity-70"
+                >
+                  <X className="w-4 h-4 text-white" />
+                </button>
+              </div>
+            )}
+
+            {/* Icono colorido */}
+            <div className="flex justify-start">
+              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 rounded-lg flex items-center justify-center">
+                <ImageIcon className="w-4 h-4 text-white" />
+              </div>
+            </div>
+
+            {/* Add to Post Section */}
+            <div className="border border-slate-600 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-white font-medium">Añadir a tu publicación</span>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={openFileSelector}
+                    className="p-3 hover:bg-slate-700 rounded-full transition-colors"
+                    title="Subir imagen principal"
+                  >
+                    <Camera className="w-5 h-5 text-green-500" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <input
+              type="file"
+              ref={imageInputRef}
+              onChange={e => handleFileUpload(e.target.files[0])}
+              accept="image/*"
+              style={{ display: "none" }}
+            />
+
+            <Button
+              onClick={handleCreatePost}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              disabled={!newPost.title || !newPost.description}
+            >
+              Publicar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Feed de publicaciones */}
       {posts.map((post) => (
         <Card key={post.id} className="overflow-hidden bg-slate-800 border-slate-700 shadow-xl">
           {/* Post Image */}
