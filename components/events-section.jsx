@@ -126,28 +126,34 @@ const EventsSection = () => {
     return timeString
   }
 
-  const handleCreateEvent = () => {
+  const handleCreateEvent = async () => {
     if (newEvent.title && newEvent.date && newEvent.time && newEvent.location) {
-      setEvents([
-        ...events,
-        {
-          ...newEvent,
-          id: Date.now(),
-          attendees: Number(newEvent.attendees) || 0,
-        },
-      ])
-      setNewEvent({
-        title: "",
-        description: "",
-        date: "",
-        time: "",
-        location: "",
-        attendees: 0,
-        category: "conferencia",
-        featured: false,
-        price: "",
-      })
-      setIsCreateDialogOpen(false)
+      try {
+        // Llama a la API para crear el evento
+        const { createEvent } = await import("../lib/fetch/events");
+        await createEvent({
+          title: newEvent.title,
+          description: newEvent.description,
+          date: newEvent.date,
+          location: newEvent.location,
+        });
+        setNewEvent({
+          title: "",
+          description: "",
+          date: "",
+          time: "",
+          location: "",
+          attendees: 0,
+          category: "conferencia",
+          featured: false,
+          price: "",
+        });
+        setIsCreateDialogOpen(false);
+        alert("¡Evento creado exitosamente!");
+        // Opcional: recargar eventos desde el backend aquí
+      } catch (error) {
+        alert("Error al crear el evento");
+      }
     }
   }
 

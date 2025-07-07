@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef } from "react"
+import { createPublication } from "../lib/fetch/publications"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -91,37 +92,33 @@ export default function SocialFeed() {
     imageInputRef.current?.click()
   }
 
-  const handleCreatePost = () => {
+  const handleCreatePost = async () => {
     if (newPost.title && newPost.description) {
-      const post = {
-        ...newPost,
-        id: Date.now(),
-        image: newPost.image || "/placeholder.svg",
-        user: {
-          ...newPost.user,
-          avatar: newPost.user.avatar || "/placeholder.svg",
-        },
-        likes: 0,
-        comments: 0,
-        shares: 0,
-        timestamp: "ahora"
+      try {
+        await createPublication({
+          text: newPost.description,
+          file: newPost.image || null,
+        });
+        setIsCreateDialogOpen(false);
+        setNewPost({
+          title: "",
+          description: "",
+          image: "",
+          user: {
+            name: "Usuario",
+            avatar: "",
+            username: "@usuario"
+          },
+          likes: 0,
+          comments: 0,
+          shares: 0,
+          timestamp: "ahora"
+        });
+        alert("¡Publicación creada exitosamente!");
+        // Opcional: recargar publicaciones desde el backend aquí
+      } catch (error) {
+        alert("Error al crear la publicación");
       }
-      setPosts([post, ...posts])
-      setNewPost({
-        title: "",
-        description: "",
-        image: "",
-        user: {
-          name: "Usuario",
-          avatar: "",
-          username: "@usuario"
-        },
-        likes: 0,
-        comments: 0,
-        shares: 0,
-        timestamp: "ahora"
-      })
-      setIsCreateDialogOpen(false)
     }
   }
 

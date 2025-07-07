@@ -45,7 +45,9 @@ export default function Anuncios() {
   ])
 
   const [newAd, setNewAd] = useState({
+    title: "",
     description: "",
+    expiresAt: "",
     image: "",
     profileImage: "",
   })
@@ -86,29 +88,28 @@ export default function Anuncios() {
     }
   }
 
-  const handleCreateAd = () => {
-    if (newAd.description) {
-      const ad = {
-        id: Date.now().toString(),
-        ...newAd,
-        name: "Usuario", // valor por defecto
-        likes: "0", // valor por defecto
-        image: newAd.image || "/placeholder.svg?height=200&width=300",
-        profileImage: newAd.profileImage || "/placeholder.svg?height=40&width=40",
+  const handleCreateAd = async () => {
+    if (newAd.title && newAd.description) {
+      try {
+        const { createAnnouncement } = await import("../lib/fetch/announcements");
+        await createAnnouncement({
+          title: newAd.title,
+          content: newAd.description,
+          expiresAt: newAd.expiresAt || null,
+        });
+        setNewAd({
+          title: "",
+          description: "",
+          expiresAt: "",
+          image: "",
+          profileImage: "",
+        });
+        setIsCreateDialogOpen(false);
+        alert("¡Anuncio creado exitosamente!");
+        // Opcional: recargar anuncios desde el backend aquí
+      } catch (error) {
+        alert("Error al crear el anuncio");
       }
-
-      // Agregar el nuevo anuncio al principio del array para que se vea inmediatamente
-      setAds([ad, ...ads])
-
-      // Limpiar el formulario
-      setNewAd({
-        description: "",
-        image: "",
-        profileImage: "",
-      })
-
-      // Cerrar el diálogo
-      setIsCreateDialogOpen(false)
     }
   }
 
@@ -172,7 +173,30 @@ export default function Anuncios() {
               </div>
 
               {/* Main Content Area */}
+
               <div className="space-y-4">
+                {/* Título del anuncio */}
+                <div>
+                  <input
+                    type="text"
+                    value={newAd.title}
+                    onChange={(e) => setNewAd({ ...newAd, title: e.target.value })}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
+                    placeholder="Título del anuncio"
+                  />
+                </div>
+                {/* Fecha de expiración */}
+                <div>
+                  <label className="block text-gray-300 text-sm mb-1" htmlFor="expiresAt">Fecha de expiración</label>
+                  <input
+                    id="expiresAt"
+                    type="date"
+                    value={newAd.expiresAt}
+                    onChange={(e) => setNewAd({ ...newAd, expiresAt: e.target.value })}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
+                  />
+                </div>
+                {/* Descripción */}
                 <div>
                   <Textarea
                     value={newAd.description}
@@ -182,7 +206,6 @@ export default function Anuncios() {
                     rows={3}
                   />
                 </div>
-
                 {/* Image Preview */}
                 {newAd.image && (
                   <div className="relative">
@@ -199,7 +222,6 @@ export default function Anuncios() {
                     </button>
                   </div>
                 )}
-
                 {/* Colorful icon like in the reference */}
                 <div className="flex justify-start">
                   <div className="w-8 h-8 bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 rounded-lg flex items-center justify-center">
@@ -227,7 +249,7 @@ export default function Anuncios() {
               <Button
                 onClick={handleCreateAd}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                disabled={!newAd.description}
+                disabled={!newAd.title || !newAd.description}
               >
                 Publicar
               </Button>
