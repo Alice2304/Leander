@@ -30,7 +30,7 @@ export default function RootLayout({ children }) {
           <SidebarInset>
             <HeaderSidebar />
             <div className="p-4">
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-4 s">
                 {children}
               </div>
             </div>
