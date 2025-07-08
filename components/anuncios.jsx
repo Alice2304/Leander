@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { X, Heart, Plus, Upload, Users, ImageIcon, Smile, Camera } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -8,41 +8,21 @@ import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 export default function Anuncios() {
-  const [ads, setAds] = useState([
-    {
-      id: "1",
-      name: "Control de Estudio",
-      description: "Solicitudes de constancias académicas solo los Lunes y Martes de 8:00 a 12:00 y 1:00 a 3:00",
-      likes: "79",
-      image: "https://noticias.cruzeirodosuleducacional.edu.br/wp-content/uploads/2019/06/950x351.jpg",
-      profileImage: "https://upload.wikimedia.org/wikipedia/commons/7/72/Logo_Unexca_Positivo.jpg",
-    },
-    {
-      id: "2",
-      name: "Nucleo Altagracia",
-      description: "No habrá actividades académicas esta semana por fumigación",
-      likes: "364.6k",
-      image: "https://noticias.cruzeirodosuleducacional.edu.br/wp-content/uploads/2019/06/950x351.jpg",
-      profileImage: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTzeAIjZShfj8Bafy06GFiBvRNF2lzH2m7GlA&s",
-    },
-    {
-      id: "3",
-      name: "Centro de estudiantes",
-      description: "Pronto se abrirá convocatoria para el centro de estudiantes, estar atentos",
-      likes: "75.4k",
-      image: "https://noticias.cruzeirodosuleducacional.edu.br/wp-content/uploads/2019/06/950x351.jpg",
-      profileImage:
-        "https://img.favpng.com/4/25/8/letter-case-u-alphabet-word-png-favpng-ZBFmhuzyaii8D2kBxVHDvT0LV.jpg",
-    },
-    {
-      id: "4",
-      name: "Control de Estudio",
-      description: "Se le recuerda a los estudiantes del 4-2 que tienen reunión el día Jueves a las 2:00 pm",
-      likes: "96",
-      image: "https://noticias.cruzeirodosuleducacional.edu.br/wp-content/uploads/2019/06/950x351.jpg",
-      profileImage: "https://upload.wikimedia.org/wikipedia/commons/7/72/Logo_Unexca_Positivo.jpg",
-    },
-  ])
+  const [ads, setAds] = useState([])
+
+  useEffect(() => {
+    const loadAnnouncements = async () => {
+      try {
+        const { fetchAnnouncements } = await import("../lib/fetch/announcements");
+        const data = await fetchAnnouncements();
+        // Si la respuesta es { announcements: [...] }
+        setAds(data.announcements || data);
+      } catch (error) {
+        console.error("Error al cargar anuncios:", error);
+      }
+    };
+    loadAnnouncements();
+  }, []);
 
   const [newAd, setNewAd] = useState({
     title: "",
@@ -91,12 +71,15 @@ export default function Anuncios() {
   const handleCreateAd = async () => {
     if (newAd.title && newAd.description) {
       try {
-        const { createAnnouncement } = await import("../lib/fetch/announcements");
+        const { createAnnouncement, fetchAnnouncements } = await import("../lib/fetch/announcements");
         await createAnnouncement({
           title: newAd.title,
           content: newAd.description,
           expiresAt: newAd.expiresAt || null,
         });
+        // Recargar anuncios después de crear uno nuevo
+        const data = await fetchAnnouncements();
+        setAds(data.announcements || data);
         setNewAd({
           title: "",
           description: "",
@@ -106,7 +89,6 @@ export default function Anuncios() {
         });
         setIsCreateDialogOpen(false);
         alert("¡Anuncio creado exitosamente!");
-        // Opcional: recargar anuncios desde el backend aquí
       } catch (error) {
         alert("Error al crear el anuncio");
       }
@@ -222,30 +204,7 @@ export default function Anuncios() {
                     </button>
                   </div>
                 )}
-                {/* Colorful icon like in the reference */}
-                <div className="flex justify-start">
-                  <div className="w-8 h-8 bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 rounded-lg flex items-center justify-center">
-                    <ImageIcon className="w-4 h-4 text-white" />
-                  </div>
-                </div>
               </div>
-
-              {/* Add to Post Section */}
-              <div className="border border-gray-600 rounded-lg p-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-white font-medium">Añadir a tu anuncio</span>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => openFileSelector("main")}
-                      className="p-3 hover:bg-gray-700 rounded-full transition-colors"
-                      title="Subir imagen principal"
-                    >
-                      <Camera className="w-5 h-5 text-green-500" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
               <Button
                 onClick={handleCreateAd}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white"
@@ -316,7 +275,7 @@ export default function Anuncios() {
               {/* Main image */}
               <div className="relative h-48 overflow-hidden">
                 <img
-                  src={ad.image || "/placeholder.svg?height=200&width=300"}
+                  src={"/aviso.jpg"}
                   alt={ad.name}
                   className="w-full h-full object-cover"
                 />
@@ -331,19 +290,12 @@ export default function Anuncios() {
                     className="w-10 h-10 rounded-full object-cover"
                   />
                   <div>
-                    <h3 className="text-white font-semibold text-lg">{ad.name}</h3>
+                    <h3 className="text-white font-semibold text-lg">{ad.title}</h3>
                   </div>
                 </div>
 
-                <p className="text-gray-300 text-sm mb-4 leading-relaxed">{ad.description}</p>
+                <p className="text-gray-300 text-sm mb-4 leading-relaxed">{ad.content}</p>
 
-                <div className="flex items-center justify-between">
-                  <Button className="flex-1 bg-gray-700 hover:bg-gray-600 text-white border-0 mr-2">
-                    <Heart className="w-4 h-4 mr-2" />
-                    Me gusta
-                  </Button>
-                  <span className="text-gray-400 text-sm">{ad.likes}</span>
-                </div>
               </div>
             </div>
           ))}

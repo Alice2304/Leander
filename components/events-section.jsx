@@ -1,84 +1,25 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Calendar, MapPin, Clock, Users, Star, Ticket, Plus, X } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 
 const EventsSection = () => {
-  const [events, setEvents] = useState([
-    {
-      id: 1,
-      title: "Conferencia de Tecnología 2025",
-      description: "Únete a líderes de la industria para discusiones sobre tecnología de vanguardia y oportunidades de networking.",
-      date: "2025-07-15",
-      time: "09:00",
-      location: "Nucleo Altagracia",
-      attendees: 500,
-      category: "conferencia",
-      featured: true,
-      price: "",
-    },
-    {
-      id: 2,
-      title: "Taller de Diseño",
-      description: "Aprende principios de diseño moderno y técnicas prácticas de la mano de expertos.",
-      date: "2024-07-20",
-      time: "14:00",
-      location: "Nucleo Altagracia",
-      attendees: 50,
-      category: "taller",
-      featured: false,
-      price: "",
-    },
-    {
-      id: 3,
-      title: "Networking para Startups",
-      description: "Conecta con emprendedores, inversores e innovadores del ecosistema startup.",
-      date: "2025-07-25",
-      time: "18:00",
-      location: "Nucleo Altagracia",
-      attendees: 200,
-      category: "networking",
-      featured: true,
-      price: "",
-    },
-    {
-      id: 4,
-      title: "IA y Aprendizaje Automático",
-      description: "Explora los últimos avances en inteligencia artificial y machine learning.",
-      date: "2025-08-01",
-      time: "10:00",
-      location: "Nucleo Altagracia",
-      attendees: 300,
-      category: "webinar",
-      featured: false,
-      price: "",
-    },
-    {
-      id: 5,
-      title: "Encuentro de Desarrolladores",
-      description: "Reunión mensual para que desarrolladores compartan conocimientos y colaboren en proyectos.",
-      date: "2025-08-05",
-      time: "19:00",
-      location: "Nucleo Altagracia",
-      attendees: 80,
-      category: "encuentro",
-      featured: false,
-      price: "",
-    },
-    {
-      id: 6,
-      title: "Cumbre de Marketing Digital",
-      description: "Domina estrategias y herramientas de marketing digital para el crecimiento empresarial moderno.",
-      date: "2025-08-10",
-      time: "09:30",
-      location: "Nucleo Altagracia",
-      attendees: 400,
-      category: "conferencia",
-      featured: true,
-      price: "",
-    },
-  ])
+  const [events, setEvents] = useState([])
+
+  useEffect(() => {
+    const loadEvents = async () => {
+      try {
+        const { fetchEvents } = await import("../lib/fetch/events");
+        const data = await fetchEvents();
+        // Si la respuesta es { events: [...] }
+        setEvents(data.events || data);
+      } catch (error) {
+        console.error("Error al cargar eventos:", error);
+      }
+    };
+    loadEvents();
+  }, []);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [newEvent, setNewEvent] = useState({
     title: "",
@@ -129,14 +70,16 @@ const EventsSection = () => {
   const handleCreateEvent = async () => {
     if (newEvent.title && newEvent.date && newEvent.time && newEvent.location) {
       try {
-        // Llama a la API para crear el evento
-        const { createEvent } = await import("../lib/fetch/events");
+        const { createEvent, fetchEvents } = await import("../lib/fetch/events");
         await createEvent({
           title: newEvent.title,
           description: newEvent.description,
           date: newEvent.date,
           location: newEvent.location,
         });
+        // Recargar eventos después de crear uno nuevo
+        const data = await fetchEvents();
+        setEvents(data.events || data);
         setNewEvent({
           title: "",
           description: "",
@@ -150,7 +93,6 @@ const EventsSection = () => {
         });
         setIsCreateDialogOpen(false);
         alert("¡Evento creado exitosamente!");
-        // Opcional: recargar eventos desde el backend aquí
       } catch (error) {
         alert("Error al crear el evento");
       }
@@ -220,42 +162,6 @@ const EventsSection = () => {
                 className="w-full bg-transparent border-b border-slate-600 text-white focus:outline-none p-1"
                 placeholder="Ubicación"
               />
-              <input
-                type="number"
-                value={newEvent.attendees}
-                onChange={e => setNewEvent({ ...newEvent, attendees: e.target.value })}
-                className="w-full bg-transparent border-b border-slate-600 text-white focus:outline-none p-1"
-                placeholder="Asistentes esperados"
-                min={0}
-              />
-              <input
-                type="text"
-                value={newEvent.price}
-                onChange={e => setNewEvent({ ...newEvent, price: e.target.value })}
-                className="w-full bg-transparent border-b border-slate-600 text-white focus:outline-none p-1"
-                placeholder="Precio (opcional)"
-              />
-              <select
-                value={newEvent.category}
-                onChange={e => setNewEvent({ ...newEvent, category: e.target.value })}
-                className="w-full bg-transparent border-b border-slate-600 text-white focus:outline-none p-1"
-              >
-                <option value="conferencia">Conferencia</option>
-                <option value="taller">Taller</option>
-                <option value="networking">Networking</option>
-                <option value="webinar">Webinar</option>
-                <option value="encuentro">Encuentro</option>
-                <option value="festival">Festival</option>
-              </select>
-              <label className="flex items-center gap-2 mt-2">
-                <input
-                  type="checkbox"
-                  checked={newEvent.featured}
-                  onChange={e => setNewEvent({ ...newEvent, featured: e.target.checked })}
-                  className="accent-blue-600"
-                />
-                Destacado
-              </label>
               <button
                 onClick={handleCreateEvent}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg mt-2"
@@ -304,10 +210,6 @@ const EventsSection = () => {
                   <div className="flex items-center text-sm ">
                     <MapPin size={14} className="mr-2" />
                     <span>{event.location}</span>
-                  </div>
-                  <div className="flex items-center text-sm ">
-                    <Users size={14} className="mr-2" />
-                    <span>{event.attendees} asistentes</span>
                   </div>
                 </div>
 
