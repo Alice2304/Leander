@@ -263,7 +263,7 @@ export default function Anuncios() {
         {/* Ads Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
           {ads.map((ad) => (
-            <div key={ad.id} className="relative bg-gray-800 rounded-lg overflow-hidden border border-gray-700">
+            <div key={ad._id} className="relative bg-gray-800 rounded-lg overflow-hidden border border-gray-700">
               {/* Close button */}
               <button
                 onClick={() => removeAd(ad.id)}

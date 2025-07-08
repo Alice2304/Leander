@@ -3,14 +3,13 @@ import { useState, useEffect } from "react"
 import { Calendar, MapPin, Clock, Users, Star, Ticket, Plus, X } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
-
+import {fetchEvents, attendEvent, unattendEvent} from "../lib/fetch/events"
 const EventsSection = () => {
   const [events, setEvents] = useState([])
 
   useEffect(() => {
     const loadEvents = async () => {
       try {
-        const { fetchEvents } = await import("../lib/fetch/events");
         const data = await fetchEvents();
         // Si la respuesta es { events: [...] }
         setEvents(data.events || data);
@@ -24,8 +23,7 @@ const EventsSection = () => {
   const [newEvent, setNewEvent] = useState({
     title: "",
     description: "",
-    date: "",
-    time: "",
+    datetime: "",
     location: "",
     attendees: 0,
     category: "conferencia",
@@ -67,14 +65,47 @@ const EventsSection = () => {
     return timeString
   }
 
+  const formatTime12h = (timeString) => {
+    if (!timeString) return '';
+    // Espera formato HH:mm o HH:mm:ss
+    const [hour, minute] = timeString.split(":");
+    let h = parseInt(hour, 10);
+    const ampm = h >= 12 ? "PM" : "AM";
+    h = h % 12;
+    if (h === 0) h = 12;
+    return `${h}:${minute} ${ampm}`;
+  }
+
+  const formatDateAndTime12h = (dateString) => {
+    if (!dateString) return '';
+    const dateObj = new Date(dateString);
+    // Fecha
+    const fecha = dateObj.toLocaleDateString("es-ES", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+    // Hora
+    let hour = dateObj.getHours();
+    const minute = dateObj.getMinutes().toString().padStart(2, '0');
+    const ampm = hour >= 12 ? "PM" : "AM";
+    hour = hour % 12;
+    if (hour === 0) hour = 12;
+    const hora = `${hour}:${minute} ${ampm}`;
+    return `${fecha} - ${hora}`;
+  }
+
   const handleCreateEvent = async () => {
-    if (newEvent.title && newEvent.date && newEvent.time && newEvent.location) {
+    if (newEvent.title && newEvent.datetime && newEvent.location) {
       try {
         const { createEvent, fetchEvents } = await import("../lib/fetch/events");
+        // Separar fecha y hora de datetime-local
+        const [date, time] = newEvent.datetime.split("T");
         await createEvent({
           title: newEvent.title,
           description: newEvent.description,
-          date: newEvent.date,
+          date: newEvent.datetime,
+          time: time,
           location: newEvent.location,
         });
         // Recargar eventos después de crear uno nuevo
@@ -83,8 +114,7 @@ const EventsSection = () => {
         setNewEvent({
           title: "",
           description: "",
-          date: "",
-          time: "",
+          datetime: "",
           location: "",
           attendees: 0,
           category: "conferencia",
@@ -98,6 +128,30 @@ const EventsSection = () => {
       }
     }
   }
+
+  // Estado para eventos reservados por el usuario
+  const [reservedEvents, setReservedEvents] = useState([]);
+
+  // Función para reservar o quitar reservación de un evento
+  const handleToggleAttendEvent = async (eventId) => {
+    if (reservedEvents.includes(eventId)) {
+      // Quitar reservación
+      try {
+        await unattendEvent(eventId);
+        setReservedEvents((prev) => prev.filter(id => id !== eventId));
+      } catch (error) {
+        alert("Error al quitar la reservación del evento");
+      }
+    } else {
+      // Reservar
+      try {
+        await attendEvent(eventId);
+        setReservedEvents((prev) => [...prev, eventId]);
+      } catch (error) {
+        alert("Error al reservar el evento");
+      }
+    }
+  };
 
   return (
     <section className="py-6 px-4">
@@ -141,20 +195,13 @@ const EventsSection = () => {
                 placeholder="Descripción"
                 rows={2}
               />
-              <div className="flex gap-2">
-                <input
-                  type="date"
-                  value={newEvent.date}
-                  onChange={e => setNewEvent({ ...newEvent, date: e.target.value })}
-                  className="w-1/2 bg-transparent border-b border-slate-600 text-white focus:outline-none p-1"
-                />
-                <input
-                  type="time"
-                  value={newEvent.time}
-                  onChange={e => setNewEvent({ ...newEvent, time: e.target.value })}
-                  className="w-1/2 bg-transparent border-b border-slate-600 text-white focus:outline-none p-1"
-                />
-              </div>
+              <input
+                type="datetime-local"
+                value={newEvent.datetime}
+                onChange={e => setNewEvent({ ...newEvent, datetime: e.target.value })}
+                className="w-full bg-transparent border-b border-slate-600 text-white focus:outline-none p-1"
+                placeholder="Fecha y hora"
+              />
               <input
                 type="text"
                 value={newEvent.location}
@@ -165,7 +212,7 @@ const EventsSection = () => {
               <button
                 onClick={handleCreateEvent}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg mt-2"
-                disabled={!newEvent.title || !newEvent.date || !newEvent.time || !newEvent.location}
+                disabled={!newEvent.title || !newEvent.datetime || !newEvent.location}
               >
                 Crear evento
               </button>
@@ -177,7 +224,7 @@ const EventsSection = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {events.map((event) => (
             <div
-              key={event.id}
+              key={event._id}
               className=" rounded-lg border bg-slate-800 p-6 hover:shadow-lg transition-shadow duration-300 relative group"
             >
               {/* Category Icon */}
@@ -201,11 +248,7 @@ const EventsSection = () => {
                 <div className="space-y-2 mb-6">
                   <div className="flex items-center text-sm ">
                     <Calendar size={14} className="mr-2" />
-                    <span>{formatDate(event.date)}</span>
-                  </div>
-                  <div className="flex items-center text-sm ">
-                    <Clock size={14} className="mr-2" />
-                    <span>{formatTime(event.time)}</span>
+                    <span>{formatDateAndTime12h(event.date)}</span>
                   </div>
                   <div className="flex items-center text-sm ">
                     <MapPin size={14} className="mr-2" />
@@ -225,9 +268,14 @@ const EventsSection = () => {
                 {/* Price and Action */}
                 <div className="flex items-center justify-between">
                   <div className="text-lg font-bold">{event.price}</div>
-                  <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center">
+                  <button
+                    className={reservedEvents.includes(event._id)
+                      ? "bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center"
+                      : "bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center"}
+                    onClick={() => handleToggleAttendEvent(event._id)}
+                  >
                     <Ticket size={14} className="mr-1" />
-                    Reservar
+                    {reservedEvents.includes(event._id) ? "Reservado (Cancelar)" : "Reservar"}
                   </button>
                 </div>
               </div>
