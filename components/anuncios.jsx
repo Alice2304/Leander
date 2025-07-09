@@ -9,6 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 
 export default function Anuncios() {
   const [ads, setAds] = useState([])
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const [adIdToDelete, setAdIdToDelete] = useState(null);
 
   useEffect(() => {
     const loadAnnouncements = async () => {
@@ -33,13 +35,28 @@ export default function Anuncios() {
   })
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false)
+  const [adToUpdate, setAdToUpdate] = useState(null)
 
   // Referencias para los inputs de archivo
   const imageInputRef = useRef(null)
   const profileImageInputRef = useRef(null)
 
-  const removeAd = (id) => {
-    setAds(ads.filter((ad) => ad.id !== id))
+  // Elimina un anuncio llamando a la API y actualiza la lista
+  const removeAd = async (id) => {
+    if (!id) return;
+    try {
+      const { deleteAnnouncement, fetchAnnouncements } = await import("../lib/fetch/announcements");
+      await deleteAnnouncement(id);
+      // Recargar anuncios después de eliminar
+      const data = await fetchAnnouncements();
+      setAds(data.announcements || data);
+      setIsConfirmDialogOpen(false);
+      setAdIdToDelete(null);
+      alert("¡Anuncio eliminado exitosamente!");
+    } catch (error) {
+      alert("Error al eliminar el anuncio");
+    }
   }
 
   // Función para manejar la carga de archivos
@@ -94,6 +111,41 @@ export default function Anuncios() {
       }
     }
   }
+
+  // Maneja la apertura del modal de actualización
+  const openUpdateDialog = (ad) => {
+    setAdToUpdate({
+      ...ad,
+      // Asegura que los campos estén definidos para el formulario
+      title: ad.title || "",
+      content: ad.content || "",
+      expiresAt: ad.expiresAt ? ad.expiresAt.slice(0, 10) : "",
+    });
+    setIsUpdateDialogOpen(true);
+  };
+
+  // Maneja la actualización del anuncio
+  const handleUpdateAd = async () => {
+    if (adToUpdate && adToUpdate.title && adToUpdate.content) {
+      try {
+        const { updateAnnouncement, fetchAnnouncements } = await import("../lib/fetch/announcements");
+        await updateAnnouncement({
+          id: adToUpdate._id,
+          title: adToUpdate.title,
+          content: adToUpdate.content,
+          expiresAt: adToUpdate.expiresAt || null,
+        });
+        // Recargar anuncios después de actualizar
+        const data = await fetchAnnouncements();
+        setAds(data.announcements || data);
+        setIsUpdateDialogOpen(false);
+        setAdToUpdate(null);
+        alert("¡Anuncio actualizado exitosamente!");
+      } catch (error) {
+        alert("Error al actualizar el anuncio");
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-900 p-6">
@@ -266,10 +318,55 @@ export default function Anuncios() {
             <div key={ad._id} className="relative bg-gray-800 rounded-lg overflow-hidden border border-gray-700">
               {/* Close button */}
               <button
-                onClick={() => removeAd(ad.id)}
+                onClick={() => {
+                  setAdIdToDelete(ad._id);
+                  setIsConfirmDialogOpen(true);
+                }}
                 className="absolute top-3 right-3 z-10 bg-black bg-opacity-50 rounded-full p-1 hover:bg-opacity-70 transition-all"
               >
                 <X className="w-4 h-4 text-white" />
+              </button>
+      {/* Modal de confirmación para eliminar anuncio */}
+      <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+        <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">¿Eliminar anuncio?</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 text-center">
+            <p>¿Estás seguro de que deseas eliminar este anuncio? Esta acción no se puede deshacer.</p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              className="border-gray-500 text-gray-300 hover:bg-gray-700"
+              onClick={() => {
+                setIsConfirmDialogOpen(false);
+                setAdIdToDelete(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => removeAd(adIdToDelete)}
+            >
+              Eliminar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+              {/* Update button */}
+              <button
+                onClick={() => openUpdateDialog(ad)}
+                className="absolute top-3 left-3 z-10 bg-white hover:bg-gray-200 rounded-full p-1 transition-all"
+                title="Actualizar anuncio"
+                style={{ border: '1px solid #1e3a8a' }}
+              >
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M4 13.5V16h2.5l7.06-7.06-2.5-2.5L4 13.5z" stroke="#1e3a8a" strokeWidth="1.5" fill="none"/>
+                  <path d="M14.85 6.15a1.5 1.5 0 0 0 0-2.12l-1.88-1.88a1.5 1.5 0 0 0-2.12 0l-1.06 1.06 4 4 1.06-1.06z" stroke="#1e3a8a" strokeWidth="1.5" fill="none"/>
+                </svg>
               </button>
 
               {/* Main image */}
@@ -299,6 +396,56 @@ export default function Anuncios() {
               </div>
             </div>
           ))}
+      {/* Modal para actualizar anuncio */}
+      <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>
+        <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-lg">
+          <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <DialogTitle className="text-xl font-bold">Actualizar anuncio</DialogTitle>
+          </DialogHeader>
+          {adToUpdate && (
+            <div className="space-y-4">
+              {/* Título del anuncio */}
+              <div>
+                <input
+                  type="text"
+                  value={adToUpdate.title}
+                  onChange={e => setAdToUpdate({ ...adToUpdate, title: e.target.value })}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
+                  placeholder="Título del anuncio"
+                />
+              </div>
+              {/* Fecha de expiración */}
+              <div>
+                <label className="block text-gray-300 text-sm mb-1" htmlFor="updateExpiresAt">Fecha de expiración</label>
+                <input
+                  id="updateExpiresAt"
+                  type="date"
+                  value={adToUpdate.expiresAt}
+                  onChange={e => setAdToUpdate({ ...adToUpdate, expiresAt: e.target.value })}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
+                />
+              </div>
+              {/* Descripción */}
+              <div>
+                <Textarea
+                  value={adToUpdate.content}
+                  onChange={e => setAdToUpdate({ ...adToUpdate, content: e.target.value })}
+                  className="bg-transparent border-none text-white text-lg resize-none focus:ring-0 focus:outline-none p-0"
+                  placeholder="¿Qué quieres anunciar?"
+                  rows={3}
+                />
+              </div>
+              <Button
+                onClick={handleUpdateAd}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={!adToUpdate.title || !adToUpdate.content}
+              >
+                Actualizar
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
         </div>
 
         {/* Empty state */}

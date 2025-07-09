@@ -3,7 +3,7 @@ import { useState, useEffect } from "react"
 import { Calendar, MapPin, Clock, Users, Star, Ticket, Plus, X } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
-import {fetchEvents, attendEvent, unattendEvent} from "../lib/fetch/events"
+import {fetchEvents, attendEvent, unattendEvent, deleteEvent} from "../lib/fetch/events"
 const EventsSection = () => {
   const [events, setEvents] = useState([])
 
@@ -225,14 +225,35 @@ const EventsSection = () => {
           {events.map((event) => (
             <div
               key={event._id}
-              className=" rounded-lg border bg-slate-800 p-6 hover:shadow-lg transition-shadow duration-300 relative group"
+              className="rounded-lg border bg-slate-800 p-6 hover:shadow-lg transition-shadow duration-300 relative group"
             >
               {/* Category Icon */}
               <div className="absolute top-4 left-4">{getCategoryIcon(event.category)}</div>
 
+              {/* Botón eliminar evento (arriba derecha) */}
+              <button
+                onClick={async () => {
+                  if (window.confirm("¿Seguro que deseas eliminar este evento?")) {
+                    try {
+                      await deleteEvent(event._id);
+                      // Recargar eventos después de eliminar
+                      const data = await fetchEvents();
+                      setEvents(data.events || data);
+                      alert("Evento eliminado exitosamente");
+                    } catch (error) {
+                      alert("Error al eliminar el evento");
+                    }
+                  }
+                }}
+                className="absolute top-4 right-4 bg-red-400 hover:bg-red-500 text-white rounded-full p-1 z-10 opacity-80 hover:opacity-100"
+                title="Eliminar evento"
+              >
+                <X size={16} />
+              </button>
+
               {/* Featured Badge */}
               {event.featured && (
-                <div className="absolute top-4 right-4">
+                <div className="absolute top-4 right-12">
                   <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full">
                     Destacado
                   </span>

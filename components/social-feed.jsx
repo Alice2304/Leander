@@ -296,6 +296,31 @@ export default function SocialFeed() {
                   variant="ghost"
                   size="sm"
                   className="text-slate-500 hover:text-slate-300 hover:bg-slate-700/50 transition-colors p-2"
+                  onClick={async () => {
+                    try {
+                      const user = getUser();
+                      if (!user || user.id !== post.user._id) {
+                        alert("Solo puedes editar tus propias publicaciones.");
+                        return;
+                      }
+                      const updatedTitle = prompt("Nuevo título de la publicación", post.title);
+                      const updatedText = prompt("Nuevo contenido de la publicación", post.text);
+                      // Si quieres permitir actualizar la imagen, puedes pedirla aquí también
+                      if (updatedTitle && updatedText) {
+                        await updatePublication({
+                          _id: post._id,
+                          title: updatedTitle,
+                          text: updatedText,
+                          // file: null // Si quieres permitir actualizar imagen, agrega aquí
+                        });
+                        const publications = await fetchPublications();
+                        setPosts(publications.publications || publications);
+                        alert("¡Publicación actualizada!");
+                      }
+                    } catch (error) {
+                      alert("Error al actualizar la publicación");
+                    }
+                  }}
                 >
                   <Edit3 className="w-4 h-4" />
                 </Button>

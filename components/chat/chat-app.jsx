@@ -5,6 +5,8 @@ import {
   getReceivedMessages,
   sendMessage
 } from "@/lib/fetch/message"
+import { fetchUsers } from "@/lib/fetch/user"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,7 +22,6 @@ const getToken = () => {
 }
 
 
-// El componente ahora maneja contactos y mensajes reales
 
 export default function ChatApp() {
   const [contacts, setContacts] = useState([])
@@ -28,6 +29,9 @@ export default function ChatApp() {
   const [messages, setMessages] = useState([])
   const [messageInput, setMessageInput] = useState("")
   const [loading, setLoading] = useState(false)
+  const [showUserModal, setShowUserModal] = useState(false)
+  const [userList, setUserList] = useState([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
 
   // Cargar mensajes recibidos y construir lista de contactos
   useEffect(() => {
@@ -107,29 +111,84 @@ export default function ChatApp() {
   }
 
   return (
-	<div className="flex h-screen w-full bg-gray-900 text-white rounded-lg overflow-hidden">
-	  {/* Sidebar */}
-	  <div className="w-80 bg-gray-800 border-r border-gray-700">
-		{/* Header */}
-		<div className="flex items-center justify-between p-4 border-b border-gray-700">
-		  <h2 className="text-lg font-semibold">Chats ({contacts.length})</h2>
-		  <div className="flex items-center gap-2">
-			<Button
-			  variant="ghost"
-			  size="icon"
-			  className="text-gray-400 hover:text-white"
-			>
-			  <MoreHorizontal className="h-4 w-4" />
-			</Button>
-			<Button
-			  variant="ghost"
-			  size="icon"
-			  className="text-gray-400 hover:text-white"
-			>
-			  <Edit className="h-4 w-4" />
-			</Button>
+	<>
+	  <Dialog open={showUserModal} onOpenChange={setShowUserModal}>
+		<DialogContent className="max-w-md">
+		  <DialogHeader>
+			<DialogTitle>Selecciona un usuario para nuevo mensaje</DialogTitle>
+		  </DialogHeader>
+		  {loadingUsers ? (
+			<div className="text-center py-4">Cargando usuarios...</div>
+		  ) : (
+			<div className="max-h-80 overflow-y-auto">
+			  {userList.length === 0 ? (
+				<div className="text-gray-400 text-center">No hay usuarios disponibles</div>
+			  ) : (
+				userList.map(user => (
+				  <div
+					key={user._id}
+					className="flex items-center gap-3 p-2 hover:bg-gray-100/10 rounded-lg cursor-pointer"
+					onClick={() => {
+					  setShowUserModal(false)
+					  setSelectedContact({
+						id: user._id,
+						name: `${user.name} ${user.surname}`,
+						avatar: (user.name[0] + (user.surname ? user.surname[0] : '')).toUpperCase(),
+						color: "bg-orange-500",
+						active: false,
+						lastSeen: '',
+						status: '',
+						messages: []
+					  })
+					}}
+				  >
+					<Avatar className="h-8 w-8">
+					  <AvatarFallback className="bg-orange-500 text-white text-xs">
+						{(user.name[0] + (user.surname ? user.surname[0] : '')).toUpperCase()}
+					  </AvatarFallback>
+					</Avatar>
+					<span className="font-medium text-white">{user.name} {user.surname}</span>
+				  </div>
+				))
+			  )}
+			</div>
+		  )}
+		</DialogContent>
+	  </Dialog>
+	  <div className="flex h-screen w-full bg-gray-900 text-white rounded-lg overflow-hidden">
+		{/* Sidebar */}
+		<div className="w-80 bg-gray-800 border-r border-gray-700">
+		  {/* Header */}
+		  <div className="flex items-center justify-between p-4 border-b border-gray-700">
+			<h2 className="text-lg font-semibold">Chats ({contacts.length})</h2>
+			<div className="flex items-center gap-2">
+			  <Button
+				variant="ghost"
+				size="icon"
+				className="text-gray-400 hover:text-white"
+				onClick={async () => {
+				  setShowUserModal(true)
+				  setLoadingUsers(true)
+				  try {
+					const res = await fetchUsers()
+					setUserList(res.users || [])
+				  } catch {
+					setUserList([])
+				  }
+				  setLoadingUsers(false)
+				}}
+			  >
+				<Edit className="h-4 w-4" />
+			  </Button>
+			  <Button
+				variant="ghost"
+				size="icon"
+				className="text-gray-400 hover:text-white"
+			  >
+				<MoreHorizontal className="h-4 w-4" />
+			  </Button>
+			</div>
 		  </div>
-		</div>
 
 		{/* Contacts List */}
 		<ScrollArea className="flex-1">
@@ -295,5 +354,6 @@ export default function ChatApp() {
 		</div>
 	  </div>
 	</div>
+	</>
   )
 }

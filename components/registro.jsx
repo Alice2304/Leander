@@ -21,6 +21,7 @@ export default function Registro() {
     acceptTerms: false,
   })
   const [profileImage, setProfileImage] = useState(null)
+  const [profileFile, setProfileFile] = useState(null)
   const [uploading, setUploading] = useState(false)
 
   const handleInputChange = (e) => {
@@ -34,10 +35,10 @@ export default function Registro() {
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
-
     try {
       setUploading(true)
-      // Crear URL temporal para preview
+      // Guardar archivo real y URL para preview
+      setProfileFile(file)
       const imageUrl = URL.createObjectURL(file)
       setProfileImage(imageUrl)
     } catch (error) {
@@ -63,11 +64,10 @@ export default function Registro() {
         nick: formData.username,
         email: formData.email,
         password: formData.password,
-        // image: null // Si quieres enviar la imagen, deberías manejar el upload real
+        image: profileFile || null,
       }
       await registerUser(params)
       setSuccess(true)
-      // Mostrar alerta y redirigir
       alert("¡Registro exitoso! Serás redirigido al inicio de sesión.")
       window.location.href = "/"
     } catch (err) {
