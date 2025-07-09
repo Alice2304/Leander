@@ -1,5 +1,7 @@
 "use client"
 import * as React from "react"
+import { useEffect, useState } from "react";
+import { getUserName, getUserEmail, getUserImage, API_BASE_IMG } from "@/lib/global";
 
 import { NavMain } from "@/components/nav-main"
 import { NavProjects } from "@/components/nav-projects"
@@ -18,6 +20,20 @@ export function AppSidebar({
   data,
   ...props
 }) {
+  const [user, setUser] = useState(sidebarData.user);
+
+  useEffect(() => {
+    let avatar = getUserImage() || "/logo.jpg";
+    if (avatar && !avatar.startsWith("http")) {
+      avatar = API_BASE_IMG.replace(/\/$/, "") + avatar;
+    }
+    setUser({
+      name: getUserName() || "",
+      email: getUserEmail() || "",
+      avatar,
+    });
+  }, []);
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -28,7 +44,7 @@ export function AppSidebar({
 {/*         <NavProjects projects={sidebarData.projects} /> */}
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={sidebarData.user} />
+        <NavUser user={user} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

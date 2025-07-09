@@ -4,6 +4,8 @@ import { Calendar, MapPin, Clock, Users, Star, Ticket, Plus, X } from "lucide-re
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import {fetchEvents, attendEvent, unattendEvent, deleteEvent} from "../lib/fetch/events"
+import { isAdmin } from "../lib/global";
+
 const EventsSection = () => {
   const [events, setEvents] = useState([])
 
@@ -153,6 +155,12 @@ const EventsSection = () => {
     }
   };
 
+  // Estado para el modal de confirmación y el id del evento a borrar
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const [eventIdToDelete, setEventIdToDelete] = useState(null);
+
+  const admin = typeof window !== "undefined" && isAdmin();
+
   return (
     <section className="py-6 px-4">
       <div className="max-w-7xl mx-auto">
@@ -164,14 +172,16 @@ const EventsSection = () => {
               Descubre eventos increíbles, conecta con profesionales y expande tus conocimientos
             </p>
           </div>
-          <button
-            onClick={() => setIsCreateDialogOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center mx-auto"
-            style={{ position: 'absolute', right: 0, top: 0 }}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Crear evento
-          </button>
+          {admin && (
+            <button
+              onClick={() => setIsCreateDialogOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center mx-auto"
+              style={{ position: 'absolute', right: 0, top: 0 }}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Crear evento
+            </button>
+          )}
         </div>
 
         {/* Dialog para crear evento */}
@@ -230,26 +240,62 @@ const EventsSection = () => {
               {/* Category Icon */}
               <div className="absolute top-4 left-4">{getCategoryIcon(event.category)}</div>
 
-              {/* Botón eliminar evento (arriba derecha) */}
-              <button
-                onClick={async () => {
-                  if (window.confirm("¿Seguro que deseas eliminar este evento?")) {
-                    try {
-                      await deleteEvent(event._id);
-                      // Recargar eventos después de eliminar
-                      const data = await fetchEvents();
-                      setEvents(data.events || data);
-                      alert("Evento eliminado exitosamente");
-                    } catch (error) {
-                      alert("Error al eliminar el evento");
-                    }
-                  }
-                }}
-                className="absolute top-4 right-4 bg-red-400 hover:bg-red-500 text-white rounded-full p-1 z-10 opacity-80 hover:opacity-100"
-                title="Eliminar evento"
-              >
-                <X size={16} />
-              </button>
+              {/* Botón eliminar evento solo para admin */}
+              {admin && (
+                <button
+                  onClick={() => {
+                    setEventIdToDelete(event._id);
+                    setIsConfirmDialogOpen(true);
+                  }}
+                  className="absolute top-4 right-4 z-10 bg-black bg-opacity-50 rounded-full p-1 hover:bg-opacity-70 transition-all"
+                  title="Eliminar evento"
+                >
+                  <X className="w-4 h-4 text-white" />
+                </button>
+              )}
+
+              {/* Modal de confirmación para eliminar evento solo para admin */}
+              {admin && (
+                <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+                  <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-md">
+                    <DialogHeader>
+                      <DialogTitle className="text-xl font-bold">¿Eliminar evento?</DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4 text-center">
+                      <p>¿Estás seguro de que deseas eliminar este evento? Esta acción no se puede deshacer.</p>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        className="border border-gray-500 text-gray-300 hover:bg-gray-700 rounded px-4 py-2"
+                        onClick={() => {
+                          setIsConfirmDialogOpen(false);
+                          setEventIdToDelete(null);
+                        }}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        className="bg-red-600 hover:bg-red-700 text-white rounded px-4 py-2"
+                        onClick={async () => {
+                          if (!eventIdToDelete) return;
+                          try {
+                            await deleteEvent(eventIdToDelete);
+                            const data = await fetchEvents();
+                            setEvents(data.events || data);
+                            setIsConfirmDialogOpen(false);
+                            setEventIdToDelete(null);
+                            alert("Evento eliminado exitosamente");
+                          } catch (error) {
+                            alert("Error al eliminar el evento");
+                          }
+                        }}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
 
               {/* Featured Badge */}
               {event.featured && (

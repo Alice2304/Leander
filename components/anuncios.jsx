@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { isAdmin } from "../lib/global";
 
 export default function Anuncios() {
   const [ads, setAds] = useState([])
@@ -147,6 +148,9 @@ export default function Anuncios() {
     }
   };
 
+  // Verificar si el usuario es administrador
+  const admin = typeof window !== "undefined" && isAdmin();
+
   return (
     <div className="min-h-screen bg-gray-900 p-6">
       <div className="max-w-6xl mx-auto">
@@ -157,13 +161,15 @@ export default function Anuncios() {
             <p className="text-gray-400">Gestiona y visualiza todos los anuncios institucionales</p>
           </div>
 
-          <Button
-            onClick={() => setIsCreateDialogOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white flex-shrink-0"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Crear Anuncio
-          </Button>
+          {admin && (
+            <Button
+              onClick={() => setIsCreateDialogOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white flex-shrink-0"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Crear Anuncio
+            </Button>
+          )}
         </div>
 
         {/* Inputs de archivo ocultos */}
@@ -316,58 +322,64 @@ export default function Anuncios() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
           {ads.map((ad) => (
             <div key={ad._id} className="relative bg-gray-800 rounded-lg overflow-hidden border border-gray-700">
-              {/* Close button */}
-              <button
-                onClick={() => {
-                  setAdIdToDelete(ad._id);
-                  setIsConfirmDialogOpen(true);
-                }}
-                className="absolute top-3 right-3 z-10 bg-black bg-opacity-50 rounded-full p-1 hover:bg-opacity-70 transition-all"
-              >
-                <X className="w-4 h-4 text-white" />
-              </button>
-      {/* Modal de confirmación para eliminar anuncio */}
-      <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
-        <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold">¿Eliminar anuncio?</DialogTitle>
-          </DialogHeader>
-          <div className="py-4 text-center">
-            <p>¿Estás seguro de que deseas eliminar este anuncio? Esta acción no se puede deshacer.</p>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              className="border-gray-500 text-gray-300 hover:bg-gray-700"
-              onClick={() => {
-                setIsConfirmDialogOpen(false);
-                setAdIdToDelete(null);
-              }}
-            >
-              Cancelar
-            </Button>
-            <Button
-              className="bg-red-600 hover:bg-red-700 text-white"
-              onClick={() => removeAd(adIdToDelete)}
-            >
-              Eliminar
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+              {/* Close button solo para admin */}
+              {admin && (
+                <button
+                  onClick={() => {
+                    setAdIdToDelete(ad._id);
+                    setIsConfirmDialogOpen(true);
+                  }}
+                  className="absolute top-3 right-3 z-10 bg-black bg-opacity-50 rounded-full p-1 hover:bg-opacity-70 transition-all"
+                >
+                  <X className="w-4 h-4 text-white" />
+                </button>
+              )}
+              {/* Modal de confirmación para eliminar anuncio */}
+              {admin && (
+                <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+                  <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-md">
+                    <DialogHeader>
+                      <DialogTitle className="text-xl font-bold">¿Eliminar anuncio?</DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4 text-center">
+                      <p>¿Estás seguro de que deseas eliminar este anuncio? Esta acción no se puede deshacer.</p>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        className="border-gray-500 text-gray-300 hover:bg-gray-700"
+                        onClick={() => {
+                          setIsConfirmDialogOpen(false);
+                          setAdIdToDelete(null);
+                        }}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        className="bg-red-600 hover:bg-red-700 text-white"
+                        onClick={() => removeAd(adIdToDelete)}
+                      >
+                        Eliminar
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
 
-              {/* Update button */}
-              <button
-                onClick={() => openUpdateDialog(ad)}
-                className="absolute top-3 left-3 z-10 bg-white hover:bg-gray-200 rounded-full p-1 transition-all"
-                title="Actualizar anuncio"
-                style={{ border: '1px solid #1e3a8a' }}
-              >
-                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M4 13.5V16h2.5l7.06-7.06-2.5-2.5L4 13.5z" stroke="#1e3a8a" strokeWidth="1.5" fill="none"/>
-                  <path d="M14.85 6.15a1.5 1.5 0 0 0 0-2.12l-1.88-1.88a1.5 1.5 0 0 0-2.12 0l-1.06 1.06 4 4 1.06-1.06z" stroke="#1e3a8a" strokeWidth="1.5" fill="none"/>
-                </svg>
-              </button>
+              {/* Update button solo para admin */}
+              {admin && (
+                <button
+                  onClick={() => openUpdateDialog(ad)}
+                  className="absolute top-3 left-3 z-10 bg-white hover:bg-gray-200 rounded-full p-1 transition-all"
+                  title="Actualizar anuncio"
+                  style={{ border: '1px solid #1e3a8a' }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 13.5V16h2.5l7.06-7.06-2.5-2.5L4 13.5z" stroke="#1e3a8a" strokeWidth="1.5" fill="none"/>
+                    <path d="M14.85 6.15a1.5 1.5 0 0 0 0-2.12l-1.88-1.88a1.5 1.5 0 0 0-2.12 0l-1.06 1.06 4 4 1.06-1.06z" stroke="#1e3a8a" strokeWidth="1.5" fill="none"/>
+                  </svg>
+                </button>
+              )}
 
               {/* Main image */}
               <div className="relative h-48 overflow-hidden">
@@ -455,10 +467,12 @@ export default function Anuncios() {
               <Upload className="w-16 h-16 text-gray-500 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-white mb-2">No hay anuncios</h3>
               <p className="text-gray-400 mb-4">Crea tu primer anuncio para comenzar</p>
-              <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white">
-                <Plus className="w-4 h-4 mr-2" />
-                Crear Anuncio
-              </Button>
+              {admin && (
+                <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Crear Anuncio
+                </Button>
+              )}
             </div>
           </div>
         )}

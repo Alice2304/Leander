@@ -1,15 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Plus, Send } from "lucide-react"
+import { socket, connectAndAuthenticate } from "@/lib/ws/notificactiones"
 
 export default function Component() {
   const [message, setMessage] = useState("")
-
-  const messages = [
+  const [messages, setMessages] = useState([
     {
       id: 1,
       sender: "agent",
@@ -34,12 +34,41 @@ export default function Component() {
       content: "I can't log in.",
       timestamp: "now",
     },
-  ]
+  ])
+
+  useEffect(() => {
+    connectAndAuthenticate();
+    const handleNewMessage = (msg) => {
+      setMessages(prev => [
+        ...prev,
+        {
+          id: msg._id,
+          sender: "agent", // O usa msg.emitter si tienes lógica para distinguir
+          content: msg.text,
+          timestamp: msg.created_at || "now"
+        }
+      ])
+    }
+    socket.on("newMessage", handleNewMessage)
+    return () => {
+      socket.off("newMessage", handleNewMessage)
+    }
+  }, [])
 
   const handleSendMessage = () => {
     if (message.trim()) {
-      // Handle sending message logic here
-      setMessage("")
+      // Emitir el mensaje por websocket
+      socket.emit("sendMessage", { text: message });
+      setMessages(prev => [
+        ...prev,
+        {
+          id: Date.now(),
+          sender: "user",
+          content: message,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
+      setMessage("");
     }
   }
 

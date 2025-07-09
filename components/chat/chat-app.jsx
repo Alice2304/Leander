@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { MoreHorizontal, Edit, Phone, Video, Info, Send } from "lucide-react"
+import { socket, connectAndAuthenticate } from "@/lib/ws/notificactiones"
 
 // Puedes obtener el token del usuario autenticado desde tu sistema de auth
 const getToken = () => {
@@ -86,9 +87,8 @@ export default function ChatApp() {
   // Enviar mensaje
   const handleSend = async () => {
 	if (!messageInput.trim() || !selectedContact) return
-	const token = getToken()
 	try {
-	  const res = await sendMessage(token, {
+	  const res = await sendMessage({
 		text: messageInput,
 		receiver: selectedContact.id
 	  })
@@ -109,6 +109,60 @@ export default function ChatApp() {
 	  // Manejo de error
 	}
   }
+
+  // Conectar y escuchar mensajes nuevos por websocket
+  useEffect(() => {
+    connectAndAuthenticate();
+    const handleNewMessage = (msg) => {
+      setContacts(prevContacts => {
+        // Buscar si el contacto ya existe
+        let found = false;
+        const updatedContacts = prevContacts.map(contact => {
+          if (contact.id === msg.emitter) {
+            found = true;
+            return {
+              ...contact,
+              messages: [
+                ...contact.messages,
+                {
+                  id: msg._id,
+                  sender: contact.name,
+                  content: msg.text,
+                  time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  isOwn: false
+                }
+              ]
+            };
+          }
+          return contact;
+        });
+        // Si no existe, crear nuevo contacto
+        if (!found) {
+          updatedContacts.unshift({
+            id: msg.emitter,
+            name: "Nuevo contacto", // Puedes mejorar esto si tienes info del usuario
+            avatar: "?",
+            color: "bg-orange-500",
+            active: false,
+            lastSeen: '',
+            status: '',
+            messages: [{
+              id: msg._id,
+              sender: "Nuevo contacto",
+              content: msg.text,
+              time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              isOwn: false
+            }]
+          });
+        }
+        return [...updatedContacts];
+      });
+    };
+    socket.on("newMessage", handleNewMessage);
+    return () => {
+      socket.off("newMessage", handleNewMessage);
+    };
+  }, []);
 
   return (
 	<>
