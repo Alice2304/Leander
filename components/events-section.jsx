@@ -5,7 +5,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea"
 import {fetchEvents, attendEvent, unattendEvent, deleteEvent} from "../lib/fetch/events"
 import { isAdmin } from "../lib/global";
-
 const EventsSection = () => {
   const [events, setEvents] = useState([])
 
@@ -159,7 +158,11 @@ const EventsSection = () => {
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [eventIdToDelete, setEventIdToDelete] = useState(null);
 
-  const admin = typeof window !== "undefined" && isAdmin();
+  // Estado para el modal de asistentes
+  const [isAttendeesDialogOpen, setIsAttendeesDialogOpen] = useState(false);
+  const [selectedEventAttendees, setSelectedEventAttendees] = useState([]);
+  const [selectedEventTitle, setSelectedEventTitle] = useState("");
+
 
   return (
     <section className="py-6 px-4">
@@ -172,16 +175,14 @@ const EventsSection = () => {
               Descubre eventos increíbles, conecta con profesionales y expande tus conocimientos
             </p>
           </div>
-          {admin && (
-            <button
-              onClick={() => setIsCreateDialogOpen(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center mx-auto"
-              style={{ position: 'absolute', right: 0, top: 0 }}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Crear evento
-            </button>
-          )}
+          <button
+            onClick={() => setIsCreateDialogOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center mx-auto"
+            style={{ position: 'absolute', right: 0, top: 0 }}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Crear evento
+          </button>
         </div>
 
         {/* Dialog para crear evento */}
@@ -235,67 +236,74 @@ const EventsSection = () => {
           {events.map((event) => (
             <div
               key={event._id}
-              className="rounded-lg border bg-slate-800 p-6 hover:shadow-lg transition-shadow duration-300 relative group"
+              className="rounded-lg border bg-slate-800 p-6 hover:shadow-lg transition-shadow duration-300 relative group cursor-pointer"
+              onClick={e => {
+                if (!isAdmin()) return; // Solo admin puede abrir el modal
+                // Evitar abrir modal si se hace click en los botones de eliminar o reservar
+                if (
+                  e.target.closest("button") ||
+                  e.target.closest(".modal-ignore-click")
+                ) return;
+                setSelectedEventAttendees(event.attendees || []);
+                setSelectedEventTitle(event.title || "");
+                setIsAttendeesDialogOpen(true);
+              }}
             >
               {/* Category Icon */}
               <div className="absolute top-4 left-4">{getCategoryIcon(event.category)}</div>
 
-              {/* Botón eliminar evento solo para admin */}
-              {admin && (
-                <button
-                  onClick={() => {
-                    setEventIdToDelete(event._id);
-                    setIsConfirmDialogOpen(true);
-                  }}
-                  className="absolute top-4 right-4 z-10 bg-black bg-opacity-50 rounded-full p-1 hover:bg-opacity-70 transition-all"
-                  title="Eliminar evento"
-                >
-                  <X className="w-4 h-4 text-white" />
-                </button>
-              )}
-
-              {/* Modal de confirmación para eliminar evento solo para admin */}
-              {admin && (
-                <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
-                  <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-md">
-                    <DialogHeader>
-                      <DialogTitle className="text-xl font-bold">¿Eliminar evento?</DialogTitle>
-                    </DialogHeader>
-                    <div className="py-4 text-center">
-                      <p>¿Estás seguro de que deseas eliminar este evento? Esta acción no se puede deshacer.</p>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <button
-                        className="border border-gray-500 text-gray-300 hover:bg-gray-700 rounded px-4 py-2"
-                        onClick={() => {
+              {/* Botón eliminar evento (arriba derecha) con modal */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEventIdToDelete(event._id);
+                  setIsConfirmDialogOpen(true);
+                }}
+                className="absolute top-4 right-4 z-10 bg-black bg-opacity-50 rounded-full p-1 hover:bg-opacity-70 transition-all modal-ignore-click"
+                title="Eliminar evento"
+              >
+                <X className="w-4 h-4 text-white" />
+              </button>
+              {/* Modal de confirmación para eliminar evento */}
+              <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+                <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="text-xl font-bold">¿Eliminar evento?</DialogTitle>
+                  </DialogHeader>
+                  <div className="py-4 text-center">
+                    <p>¿Estás seguro de que deseas eliminar este evento? Esta acción no se puede deshacer.</p>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      className="border border-gray-500 text-gray-300 hover:bg-gray-700 rounded px-4 py-2"
+                      onClick={() => {
+                        setIsConfirmDialogOpen(false);
+                        setEventIdToDelete(null);
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      className="bg-red-600 hover:bg-red-700 text-white rounded px-4 py-2"
+                      onClick={async () => {
+                        if (!eventIdToDelete) return;
+                        try {
+                          await deleteEvent(eventIdToDelete);
+                          const data = await fetchEvents();
+                          setEvents(data.events || data);
                           setIsConfirmDialogOpen(false);
                           setEventIdToDelete(null);
-                        }}
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        className="bg-red-600 hover:bg-red-700 text-white rounded px-4 py-2"
-                        onClick={async () => {
-                          if (!eventIdToDelete) return;
-                          try {
-                            await deleteEvent(eventIdToDelete);
-                            const data = await fetchEvents();
-                            setEvents(data.events || data);
-                            setIsConfirmDialogOpen(false);
-                            setEventIdToDelete(null);
-                            alert("Evento eliminado exitosamente");
-                          } catch (error) {
-                            alert("Error al eliminar el evento");
-                          }
-                        }}
-                      >
-                        Eliminar
-                      </button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              )}
+                          alert("Evento eliminado exitosamente");
+                        } catch (error) {
+                          alert("Error al eliminar el evento");
+                        }
+                      }}
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                </DialogContent>
+              </Dialog>
 
               {/* Featured Badge */}
               {event.featured && (
@@ -337,9 +345,12 @@ const EventsSection = () => {
                   <div className="text-lg font-bold">{event.price}</div>
                   <button
                     className={reservedEvents.includes(event._id)
-                      ? "bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center"
-                      : "bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center"}
-                    onClick={() => handleToggleAttendEvent(event._id)}
+                      ? "bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center modal-ignore-click"
+                      : "bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center modal-ignore-click"}
+                    onClick={e => {
+                      e.stopPropagation();
+                      handleToggleAttendEvent(event._id);
+                    }}
                   >
                     <Ticket size={14} className="mr-1" />
                     {reservedEvents.includes(event._id) ? "Reservado (Cancelar)" : "Reservar"}
@@ -349,6 +360,44 @@ const EventsSection = () => {
             </div>
           ))}
         </div>
+
+        {/* Modal de asistentes (solo visible para admin) */}
+        {isAdmin() && (
+          <Dialog open={isAttendeesDialogOpen} onOpenChange={setIsAttendeesDialogOpen}>
+            <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-bold">Asistentes a "{selectedEventTitle}"</DialogTitle>
+              </DialogHeader>
+              <div className="py-4 max-h-72 overflow-y-auto">
+                {selectedEventAttendees.length === 0 ? (
+                  <p className="text-center text-gray-400">No hay asistentes registrados.</p>
+                ) : (
+                  <ul className="space-y-3">
+                    {selectedEventAttendees.map(person => (
+                      <li key={person._id} className="flex items-center gap-3">
+                        <img
+                          src={person.image}
+                          alt={person.name}
+                          className="w-10 h-10 rounded-full object-cover border border-gray-600"
+                          onError={e => { e.target.src = '/placeholder.png'; }}
+                        />
+                        <span className="font-medium">{person.name} {person.surname}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="flex justify-end">
+                <button
+                  className="bg-gray-700 hover:bg-gray-600 text-white rounded px-4 py-2"
+                  onClick={() => setIsAttendeesDialogOpen(false)}
+                >
+                  Cerrar
+                </button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
 
         {/* Call to Action */}
         <div className="text-center mt-12">
