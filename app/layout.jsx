@@ -3,6 +3,7 @@ import "./globals.css";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import HeaderSidebar from "@/components/header-sidebar";
+import { Toaster } from "sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,12 +26,10 @@ export default function LoginLayout({ children }) {
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased dark`}
       >
-        
-       <div className="">
-            <div className="flex flex-col gap-4">
-                {children}
-            </div>
+        <div className="">
+          <div className="flex flex-col gap-4">{children}</div>
         </div>
+        <Toaster richColors position="top-right" />
       </body>
     </html>
   );

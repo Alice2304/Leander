@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import {
   getReceivedMessages,
+  getEmittedMessages,
   sendMessage
 } from "@/lib/fetch/message"
 import { fetchUsers } from "@/lib/fetch/user"
@@ -13,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { MoreHorizontal, Edit, Phone, Video, Info, Send } from "lucide-react"
 import { socket, connectAndAuthenticate } from "@/lib/ws/notificactiones"
+import {API_BASE_IMG} from "@/lib/global"
 
 // Puedes obtener el token del usuario autenticado desde tu sistema de auth
 const getToken = () => {
@@ -22,7 +24,248 @@ const getToken = () => {
   return ''
 }
 
+// Utilidad para agrupar mensajes por usuario
+function groupMessages(received, emitted) {
+  const grouped = {};
+  if (received) {
+    received.forEach(msg => {
+      const emitter = msg.emitter;
+      if (!grouped[emitter._id]) {
+        grouped[emitter._id] = {
+          id: emitter._id,
+          name: `${emitter.name} ${emitter.surname}`,
+          avatar: (emitter.name[0] + (emitter.surname ? emitter.surname[0] : '')).toUpperCase(),
+          color: "bg-orange-500",
+          active: false,
+          lastSeen: '',
+          status: '',
+          messages: [],
+          hasNewMessage: false
+        }
+      }
+      grouped[emitter._id].messages.push({
+        id: msg._id,
+        sender: grouped[emitter._id].name,
+        content: msg.text,
+        time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isOwn: false,
+        created_at: msg.created_at
+      })
+    })
+  }
+  if (emitted) {
+    emitted.forEach(msg => {
+      const receiver = msg.receiver;
+      if (!grouped[receiver._id]) {
+        grouped[receiver._id] = {
+          id: receiver._id,
+          name: `${receiver.name} ${receiver.surname}`,
+          avatar: (receiver.name[0] + (receiver.surname ? receiver.surname[0] : '')).toUpperCase(),
+          color: "bg-orange-500",
+          active: false,
+          lastSeen: '',
+          status: '',
+          messages: [],
+          hasNewMessage: false
+        }
+      }
+      grouped[receiver._id].messages.push({
+        id: msg._id,
+        sender: 'Tú',
+        content: msg.text,
+        time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isOwn: true,
+        created_at: msg.created_at
+      })
+    })
+  }
+  Object.values(grouped).forEach(contact => {
+    contact.messages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+  })
+  // Ordenar contactos por la fecha del mensaje más reciente (descendente)
+  return Object.values(grouped).sort((a, b) => {
+    const lastA = a.messages.length ? new Date(a.messages[a.messages.length - 1].created_at) : 0;
+    const lastB = b.messages.length ? new Date(b.messages[b.messages.length - 1].created_at) : 0;
+    return lastB - lastA;
+  });
+}
 
+// Componente: Lista de contactos
+function ContactList({ contacts, selectedContact, onSelect }) {
+  // Utilidad para truncar nombres largos
+  const truncateName = (name, maxLength = 18) => {
+    if (name.length > maxLength) {
+      return name.slice(0, maxLength - 3) + '...';
+    }
+    return name;
+  };
+  // Utilidad para truncar preview del mensaje
+  const truncateMsg = (msg, maxLength = 32) => {
+    if (!msg) return '';
+    return msg.length > maxLength ? msg.slice(0, maxLength - 3) + '...' : msg;
+  };
+  return (
+    <ScrollArea className="flex-1">
+      <div className="p-2">
+        {contacts.map((contact) => {
+          const lastMsg = contact.messages.length ? contact.messages[contact.messages.length - 1] : null;
+          // Si existe contact.image, usar la imagen, si no, fallback
+          const avatarImg = contact.image ? `${API_BASE_IMG}${contact.image}` : null;
+          return (
+            <div
+              key={contact.id}
+              className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                selectedContact && selectedContact.id === contact.id
+                  ? "bg-gray-700"
+                  : "hover:bg-gray-700/50"
+              }`}
+              onClick={() => onSelect(contact)}
+            >
+              <div className="relative">
+                <Avatar className="h-10 w-10">
+                  {avatarImg ? (
+                    <img src={avatarImg} alt={contact.name} className="h-10 w-10 rounded-full object-cover" />
+                  ) : (
+                    <AvatarFallback className={`${contact.color} text-white text-sm font-medium`}>
+                      {contact.avatar}
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+              </div>
+              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                <div className="flex items-center justify-between w-full">
+                  <p
+                    className="font-medium text-white truncate"
+                    title={contact.name}
+                  >
+                    {truncateName(contact.name)}
+                  </p>
+                  {lastMsg && (
+                    <span className="text-xs text-gray-400 ml-2 whitespace-nowrap">
+                      {lastMsg.time}
+                    </span>
+                  )}
+                </div>
+                {lastMsg && (
+                  <span className="text-xs text-gray-400 truncate" title={lastMsg.content}>
+                    {truncateMsg(lastMsg.content)}
+                  </span>
+                )}
+              </div>
+              {contact.hasNewMessage && (
+                <span className="ml-2 bg-green-500 text-white text-xs rounded-full px-2 py-0.5 min-w-[24px] text-center">Nuevo</span>
+              )}
+              {contact.active && (
+                <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-gray-800"></div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </ScrollArea>
+  )
+}
+
+// Componente: Header del chat
+function ChatHeader({ contact }) {
+  if (!contact) return null;
+  return (
+    <div className="flex items-center justify-between p-4 border-b border-gray-700">
+      <div className="flex items-center gap-3">
+        <Avatar className="h-10 w-10">
+          <AvatarFallback className={`${contact.color} text-white text-sm font-medium`}>
+            {contact.avatar}
+          </AvatarFallback>
+        </Avatar>
+        <div>
+          <h3 className="font-medium text-white">{contact.name}</h3>
+          {contact.lastSeen && <p className="text-sm text-gray-400">{contact.lastSeen}</p>}
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white"><Phone className="h-4 w-4" /></Button>
+        <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white"><Video className="h-4 w-4" /></Button>
+        <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white"><Info className="h-4 w-4" /></Button>
+      </div>
+    </div>
+  )
+}
+
+// Componente: Lista de mensajes
+function MessageList({ messages, selectedContact }) {
+  const endRef = useRef(null);
+  useEffect(() => {
+    if (endRef.current) {
+      endRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
+  if (!selectedContact) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-gray-400 text-lg">
+        Seleccione un contacto para ver los mensajes
+      </div>
+    )
+  }
+  return (
+    <div className="flex-1 flex flex-col min-h-0">
+      <ScrollArea className="flex-1 min-h-0 max-h-full">
+        <div className="space-y-4">
+          {messages.map((message) => (
+            <div key={message.id} className={`flex ${message.isOwn ? "justify-end" : "justify-start"}`}>
+              <div className="flex items-end gap-2 max-w-xs lg:max-w-md">
+                {!message.isOwn && (
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className={`${selectedContact ? selectedContact.color : ''} text-white text-xs`}>
+                      {selectedContact ? selectedContact.avatar : ''}
+                    </AvatarFallback>
+                  </Avatar>
+                )}
+                <div className={`px-4 py-2 rounded-2xl ${message.isOwn ? "bg-white text-gray-900 rounded-br-md" : "bg-gray-700 text-white rounded-bl-md"}`}>
+                  <p className="text-sm">{message.content}</p>
+                </div>
+                {message.isOwn && (
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="bg-gray-600 text-white text-xs">Tú</AvatarFallback>
+                  </Avatar>
+                )}
+              </div>
+              <div className="text-xs text-gray-400 ml-2 self-end">{message.time}</div>
+            </div>
+          ))}
+          <div ref={endRef} />
+        </div>
+      </ScrollArea>
+    </div>
+  )
+}
+
+// Componente: Input de mensaje
+function MessageInput({ value, onChange, onSend, loading }) {
+  return (
+    <div className="p-4 border-t border-gray-700 bg-gray-900 sticky bottom-0 z-10">
+      <div className="flex items-center gap-2">
+        <div className="flex-1 relative">
+          <Input
+            placeholder="Escribe un mensaje..."
+            value={value}
+            onChange={onChange}
+            className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 pr-10"
+            onKeyDown={e => { if (e.key === 'Enter') onSend() }}
+          />
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-gray-400 hover:text-white"
+          onClick={onSend}
+          disabled={loading || !value.trim()}
+        >
+          <Send className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  )
+}
 
 export default function ChatApp() {
   const [contacts, setContacts] = useState([])
@@ -34,118 +277,160 @@ export default function ChatApp() {
   const [userList, setUserList] = useState([])
   const [loadingUsers, setLoadingUsers] = useState(false)
 
-  // Cargar mensajes recibidos y construir lista de contactos
+  // Cargar mensajes recibidos y enviados y construir lista de contactos
   useEffect(() => {
-	const fetchMessages = async () => {
-	  setLoading(true)
-	  try {
-		const token = getToken()
-		const res = await getReceivedMessages(token)
-		if (res && res.messages) {
-		  // Agrupar mensajes por emisor para crear contactos
-		  const grouped = {}
-		  res.messages.forEach(msg => {
-			const emitter = msg.emitter
-			if (!grouped[emitter._id]) {
-			  grouped[emitter._id] = {
-				id: emitter._id,
-				name: `${emitter.name} ${emitter.surname}`,
-				avatar: (emitter.name[0] + (emitter.surname ? emitter.surname[0] : '')).toUpperCase(),
-				color: "bg-orange-500", // Puedes personalizar esto
-				active: false,
-				lastSeen: '',
-				status: '',
-				messages: []
-			  }
-			}
-			grouped[emitter._id].messages.push({
-			  id: msg._id,
-			  sender: grouped[emitter._id].name,
-			  content: msg.text,
-			  time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-			  isOwn: false
-			})
-		  })
-		  const contactsArr = Object.values(grouped)
-		  setContacts(contactsArr)
-		  setSelectedContact(contactsArr[0] || null)
-		}
-	  } catch (e) {
-		// Manejo de error
-	  }
-	  setLoading(false)
-	}
-	fetchMessages()
+    const fetchMessages = async () => {
+      setLoading(true)
+      try {
+        const token = getToken()
+        const [receivedRes, emittedRes] = await Promise.all([
+          getReceivedMessages(token),
+          getEmittedMessages(token)
+        ])
+        const contactsArr = groupMessages(receivedRes?.messages, emittedRes?.messages)
+        setContacts(contactsArr)
+        // No seleccionar contacto por defecto
+        // setSelectedContact(contactsArr[0] || null)
+      } catch (e) {}
+      setLoading(false)
+    }
+    fetchMessages()
   }, [])
 
-  // Cargar mensajes del contacto seleccionado
+  // Sincronizar mensajes del contacto seleccionado
   useEffect(() => {
-	if (!selectedContact) return
-	setMessages(selectedContact.messages || [])
-  }, [selectedContact])
+    if (!selectedContact) return;
+    const updated = contacts.find(c => c.id === selectedContact.id);
+    if (updated && updated.messages.length !== messages.length) {
+      setMessages(updated.messages || []);
+    }
+  }, [contacts, selectedContact, messages.length]);
 
   // Enviar mensaje
-  const handleSend = async () => {
-	if (!messageInput.trim() || !selectedContact) return
-	try {
-	  const res = await sendMessage({
-		text: messageInput,
-		receiver: selectedContact.id
-	  })
-	  if (res && res.message) {
-		setMessages(prev => [
-		  ...prev,
-		  {
-			id: res.message._id,
-			sender: 'Tú',
-			content: res.message.text,
-			time: new Date(res.message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-			isOwn: true
-		  }
-		])
-		setMessageInput("")
-	  }
-	} catch (e) {
-	  // Manejo de error
-	}
-  }
+  const handleSend = useCallback(async () => {
+    if (!messageInput.trim() || !selectedContact) return
+    try {
+      const res = await sendMessage({ text: messageInput, receiver: selectedContact.id })
+      if (res && res.message) {
+        setMessages(prev => [
+          ...prev,
+          {
+            id: res.message._id,
+            sender: 'Tú',
+            content: res.message.text,
+            time: new Date(res.message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            isOwn: true
+          }
+        ])
+        setContacts(prevContacts => prevContacts.map(c =>
+          c.id === selectedContact.id
+            ? {
+                ...c,
+                messages: [
+                  ...c.messages,
+                  {
+                    id: res.message._id,
+                    sender: 'Tú',
+                    content: res.message.text,
+                    time: new Date(res.message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    isOwn: true
+                  }
+                ]
+              }
+          : c
+        ))
+        setMessageInput("")
+      }
+    } catch (e) {}
+  }, [messageInput, selectedContact])
+
+  // Al seleccionar contacto, limpiar hasNewMessage
+  const handleSelectContact = useCallback((contact) => {
+    setSelectedContact(contact)
+    setMessages(contact.messages || [])
+    setContacts(prevContacts => prevContacts.map(c =>
+      c.id === contact.id
+        ? {
+            ...c,
+            hasNewMessage: false,
+            // Marcar todos los mensajes recibidos como leídos
+            messages: c.messages.map(m => m.isOwn ? m : { ...m, read: true })
+          }
+        : c
+    ))
+  }, [])
 
   // Conectar y escuchar mensajes nuevos por websocket
   useEffect(() => {
     connectAndAuthenticate();
     const handleNewMessage = (msg) => {
       setContacts(prevContacts => {
-        // Buscar si el contacto ya existe
         let found = false;
         const updatedContacts = prevContacts.map(contact => {
           if (contact.id === msg.emitter) {
             found = true;
+            const alreadyExists = contact.messages.some(m => m.id === msg._id);
+            if (selectedContact && selectedContact.id === contact.id && !alreadyExists) {
+              setMessages(prevMsgs =>
+                prevMsgs.some(m => m.id === msg._id)
+                  ? prevMsgs
+                  : [
+                      ...prevMsgs,
+                      {
+                        id: msg._id,
+                        sender: contact.name,
+                        content: msg.text,
+                        time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        isOwn: false
+                      }
+                    ]
+              );
+            }
             return {
               ...contact,
-              messages: [
-                ...contact.messages,
-                {
-                  id: msg._id,
-                  sender: contact.name,
-                  content: msg.text,
-                  time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                  isOwn: false
-                }
-              ]
+              hasNewMessage: true,
+              messages: alreadyExists
+                ? contact.messages
+                : [
+                    ...contact.messages,
+                    {
+                      id: msg._id,
+                      sender: contact.name,
+                      content: msg.text,
+                      time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                      isOwn: false
+                    }
+                  ]
             };
           }
           return contact;
         });
-        // Si no existe, crear nuevo contacto
         if (!found) {
+          if (selectedContact && selectedContact.id === msg.emitter) {
+            setMessages(prevMsgs =>
+              prevMsgs.some(m => m.id === msg._id)
+                ? prevMsgs
+                : [
+                    ...prevMsgs,
+                    {
+                      id: msg._id,
+                      sender: "Nuevo contacto",
+                      content: msg.text,
+                      time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                      isOwn: false
+                    }
+                  ]
+            );
+          }
           updatedContacts.unshift({
             id: msg.emitter,
-            name: "Nuevo contacto", // Puedes mejorar esto si tienes info del usuario
+            name: "Nuevo contacto",
             avatar: "?",
             color: "bg-orange-500",
             active: false,
             lastSeen: '',
             status: '',
+            hasNewMessage: true,
             messages: [{
               id: msg._id,
               sender: "Nuevo contacto",
@@ -162,8 +447,9 @@ export default function ChatApp() {
     return () => {
       socket.off("newMessage", handleNewMessage);
     };
-  }, []);
+  }, [selectedContact]);
 
+  // Modal para seleccionar usuario
   return (
 	<>
 	  <Dialog open={showUserModal} onOpenChange={setShowUserModal}>
@@ -184,7 +470,7 @@ export default function ChatApp() {
 					className="flex items-center gap-3 p-2 hover:bg-gray-100/10 rounded-lg cursor-pointer"
 					onClick={() => {
 					  setShowUserModal(false)
-					  setSelectedContact({
+					  handleSelectContact({
 						id: user._id,
 						name: `${user.name} ${user.surname}`,
 						avatar: (user.name[0] + (user.surname ? user.surname[0] : '')).toUpperCase(),
@@ -209,9 +495,9 @@ export default function ChatApp() {
 		  )}
 		</DialogContent>
 	  </Dialog>
-	  <div className="flex h-screen w-full bg-gray-900 text-white rounded-lg overflow-hidden">
+	  <div className="flex h-screen w-full bg-gray-900 text-white rounded-lg overflow-hidden flex-col md:flex-row">
 		{/* Sidebar */}
-		<div className="w-80 bg-gray-800 border-r border-gray-700">
+		<div className="w-full md:w-80 bg-gray-800 border-r border-gray-700 flex-shrink-0">
 		  {/* Header */}
 		  <div className="flex items-center justify-between p-4 border-b border-gray-700">
 			<h2 className="text-lg font-semibold">Chats ({contacts.length})</h2>
@@ -234,180 +520,21 @@ export default function ChatApp() {
 			  >
 				<Edit className="h-4 w-4" />
 			  </Button>
-			  <Button
-				variant="ghost"
-				size="icon"
-				className="text-gray-400 hover:text-white"
-			  >
+			  <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
 				<MoreHorizontal className="h-4 w-4" />
 			  </Button>
 			</div>
 		  </div>
 
-		{/* Contacts List */}
-		<ScrollArea className="flex-1">
-		  <div className="p-2">
-			{contacts.map((contact) => (
-			  <div
-				key={contact.id}
-				className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
-				  selectedContact && selectedContact.id === contact.id
-					? "bg-gray-700"
-					: "hover:bg-gray-700/50"
-				}`}
-				onClick={() => setSelectedContact(contact)}
-			  >
-				<div className="relative">
-				  <Avatar className="h-10 w-10">
-					<AvatarFallback
-					  className={`${contact.color} text-white text-sm font-medium`}
-					>
-					  {contact.avatar}
-					</AvatarFallback>
-				  </Avatar>
-				  {contact.active && (
-					<div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-gray-800"></div>
-				  )}
-				</div>
-				<div className="flex-1 min-w-0">
-				  <p className="font-medium text-white truncate">
-					{contact.name}
-				  </p>
-				  {contact.status && (
-					<p className="text-sm text-gray-400 truncate">
-					  {contact.status}
-					</p>
-				  )}
-				</div>
-			  </div>
-			))}
-		  </div>
-		</ScrollArea>
-	  </div>
-
-	  {/* Main Chat Area */}
-	  <div className="flex-1 flex flex-col">
-		{/* Chat Header */}
-		{selectedContact && (
-		  <div className="flex items-center justify-between p-4 border-b border-gray-700">
-			<div className="flex items-center gap-3">
-			  <Avatar className="h-10 w-10">
-				<AvatarFallback
-				  className={`${selectedContact.color} text-white text-sm font-medium`}
-				>
-				  {selectedContact.avatar}
-				</AvatarFallback>
-			  </Avatar>
-			  <div>
-				<h3 className="font-medium text-white">
-				  {selectedContact.name}
-				</h3>
-				{selectedContact.lastSeen && (
-				  <p className="text-sm text-gray-400">
-					{selectedContact.lastSeen}
-				  </p>
-				)}
-			  </div>
-			</div>
-			<div className="flex items-center gap-2">
-			  <Button
-				variant="ghost"
-				size="icon"
-				className="text-gray-400 hover:text-white"
-			  >
-				<Phone className="h-4 w-4" />
-			  </Button>
-			  <Button
-				variant="ghost"
-				size="icon"
-				className="text-gray-400 hover:text-white"
-			  >
-				<Video className="h-4 w-4" />
-			  </Button>
-			  <Button
-				variant="ghost"
-				size="icon"
-				className="text-gray-400 hover:text-white"
-			  >
-				<Info className="h-4 w-4" />
-			  </Button>
-			</div>
-		  </div>
-		)}
-
-		{/* Messages Area */}
-		<ScrollArea className="flex-1 p-4">
-		  <div className="space-y-4">
-			{messages.map((message) => (
-			  <div
-				key={message.id}
-				className={`flex ${
-				  message.isOwn ? "justify-end" : "justify-start"
-				}`}
-			  >
-				<div className="flex items-end gap-2 max-w-xs lg:max-w-md">
-				  {!message.isOwn && (
-					<Avatar className="h-8 w-8">
-					  <AvatarFallback
-						className={`${selectedContact ? selectedContact.color : ''} text-white text-xs`}
-					  >
-						{selectedContact ? selectedContact.avatar : ''}
-					  </AvatarFallback>
-					</Avatar>
-				  )}
-				  <div
-					className={`px-4 py-2 rounded-2xl ${
-					  message.isOwn
-						? "bg-white text-gray-900 rounded-br-md"
-						: "bg-gray-700 text-white rounded-bl-md"
-					}`}
-				  >
-					<p className="text-sm">{message.content}</p>
-				  </div>
-				  {message.isOwn && (
-					<Avatar className="h-8 w-8">
-					  <AvatarFallback className="bg-gray-600 text-white text-xs">
-						Tú
-					  </AvatarFallback>
-					</Avatar>
-				  )}
-				</div>
-				<div className="text-xs text-gray-400 ml-2 self-end">
-				  {message.time}
-				</div>
-			  </div>
-			))}
-		  </div>
-		</ScrollArea>
-
-		{/* Message Input */}
-		<div className="p-4 border-t border-gray-700">
-		  <div className="flex items-center gap-2">
-			<div className="flex-1 relative">
-			  <Input
-				placeholder="Escribe un mensaje..."
-				value={messageInput}
-				onChange={(e) => setMessageInput(e.target.value)}
-				className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 pr-10"
-				onKeyDown={e => {
-				  if (e.key === 'Enter') handleSend()
-				}}
-			  />
-			</div>
-
-			<Button
-			  variant="ghost"
-			  size="icon"
-			  className="text-gray-400 hover:text-white"
-			  onClick={handleSend}
-			  disabled={loading || !messageInput.trim()}
-			>
-			  <Send className="h-4 w-4" />
-			</Button>
-		  </div>
+		  <ContactList contacts={contacts} selectedContact={selectedContact} onSelect={handleSelectContact} />
 		</div>
+		{/* Main Chat Area */}
+		<div className="flex-1 flex flex-col min-h-0 w-full max-w-full">
+          <ChatHeader contact={selectedContact} />
+          <MessageList messages={messages} selectedContact={selectedContact} />
+          <MessageInput value={messageInput} onChange={e => setMessageInput(e.target.value)} onSend={handleSend} loading={loading} />
+        </div>
 	  </div>
-	</div>
 	</>
   )
 }

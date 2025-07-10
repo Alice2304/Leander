@@ -4,7 +4,7 @@ import { Calendar, MapPin, Clock, Users, Star, Ticket, Plus, X } from "lucide-re
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import {fetchEvents, attendEvent, unattendEvent, deleteEvent} from "../lib/fetch/events"
-import { isAdmin } from "../lib/global";
+import { isAdmin, getUserId } from "../lib/global";
 const EventsSection = () => {
   const [events, setEvents] = useState([])
 
@@ -253,57 +253,61 @@ const EventsSection = () => {
               <div className="absolute top-4 left-4">{getCategoryIcon(event.category)}</div>
 
               {/* Botón eliminar evento (arriba derecha) con modal */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setEventIdToDelete(event._id);
-                  setIsConfirmDialogOpen(true);
-                }}
-                className="absolute top-4 right-4 z-10 bg-black bg-opacity-50 rounded-full p-1 hover:bg-opacity-70 transition-all modal-ignore-click"
-                title="Eliminar evento"
-              >
-                <X className="w-4 h-4 text-white" />
-              </button>
-              {/* Modal de confirmación para eliminar evento */}
-              <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
-                <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-md">
-                  <DialogHeader>
-                    <DialogTitle className="text-xl font-bold">¿Eliminar evento?</DialogTitle>
-                  </DialogHeader>
-                  <div className="py-4 text-center">
-                    <p>¿Estás seguro de que deseas eliminar este evento? Esta acción no se puede deshacer.</p>
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <button
-                      className="border border-gray-500 text-gray-300 hover:bg-gray-700 rounded px-4 py-2"
-                      onClick={() => {
-                        setIsConfirmDialogOpen(false);
-                        setEventIdToDelete(null);
-                      }}
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      className="bg-red-600 hover:bg-red-700 text-white rounded px-4 py-2"
-                      onClick={async () => {
-                        if (!eventIdToDelete) return;
-                        try {
-                          await deleteEvent(eventIdToDelete);
-                          const data = await fetchEvents();
-                          setEvents(data.events || data);
-                          setIsConfirmDialogOpen(false);
-                          setEventIdToDelete(null);
-                          alert("Evento eliminado exitosamente");
-                        } catch (error) {
-                          alert("Error al eliminar el evento");
-                        }
-                      }}
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+              {isAdmin() && (
+                <>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEventIdToDelete(event._id);
+                      setIsConfirmDialogOpen(true);
+                    }}
+                    className="absolute top-4 right-4 z-10 bg-black bg-opacity-50 rounded-full p-1 hover:bg-opacity-70 transition-all modal-ignore-click"
+                    title="Eliminar evento"
+                  >
+                    <X className="w-4 h-4 text-white" />
+                  </button>
+                  {/* Modal de confirmación para eliminar evento */}
+                  <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+                    <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-md">
+                      <DialogHeader>
+                        <DialogTitle className="text-xl font-bold">¿Eliminar evento?</DialogTitle>
+                      </DialogHeader>
+                      <div className="py-4 text-center">
+                        <p>¿Estás seguro de que deseas eliminar este evento? Esta acción no se puede deshacer.</p>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <button
+                          className="border border-gray-500 text-gray-300 hover:bg-gray-700 rounded px-4 py-2"
+                          onClick={() => {
+                            setIsConfirmDialogOpen(false);
+                            setEventIdToDelete(null);
+                          }}
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          className="bg-red-600 hover:bg-red-700 text-white rounded px-4 py-2"
+                          onClick={async () => {
+                            if (!eventIdToDelete) return;
+                            try {
+                              await deleteEvent(eventIdToDelete);
+                              const data = await fetchEvents();
+                              setEvents(data.events || data);
+                              setIsConfirmDialogOpen(false);
+                              setEventIdToDelete(null);
+                              alert("Evento eliminado exitosamente");
+                            } catch (error) {
+                              alert("Error al eliminar el evento");
+                            }
+                          }}
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </>
+              )}
 
               {/* Featured Badge */}
               {event.featured && (
@@ -344,16 +348,30 @@ const EventsSection = () => {
                 <div className="flex items-center justify-between">
                   <div className="text-lg font-bold">{event.price}</div>
                   <button
-                    className={reservedEvents.includes(event._id)
-                      ? "bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center modal-ignore-click"
-                      : "bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center modal-ignore-click"}
-                    onClick={e => {
+                    className={
+                      event.attendees && event.attendees.some(att => att._id === getUserId())
+                        ? "bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center modal-ignore-click"
+                        : "bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center modal-ignore-click"
+                    }
+                    onClick={async e => {
                       e.stopPropagation();
-                      handleToggleAttendEvent(event._id);
+                      try {
+                        if (event.attendees && event.attendees.some(att => att._id === getUserId())) {
+                          await unattendEvent(event._id);
+                        } else {
+                          await attendEvent(event._id);
+                        }
+                        const data = await fetchEvents();
+                        setEvents(data.events || data);
+                      } catch (error) {
+                        alert("Error al actualizar la reservación del evento");
+                      }
                     }}
                   >
                     <Ticket size={14} className="mr-1" />
-                    {reservedEvents.includes(event._id) ? "Reservado (Cancelar)" : "Reservar"}
+                    {event.attendees && event.attendees.some(att => att._id === getUserId())
+                      ? "Reservado (Cancelar)"
+                      : "Reservar"}
                   </button>
                 </div>
               </div>

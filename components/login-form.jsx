@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { loginUser } from "@/lib/fetch/user";
 import { useRouter } from "next/navigation";
+import Cookies from "js-cookie";
 
 export function LoginForm({
   className,
@@ -25,16 +26,22 @@ export function LoginForm({
     setError("");
     try {
       const data = await loginUser(email, password);
-      // Guardar token y usuario en localStorage
+      console.log("Respuesta login:", data);
+      // Guardar token y usuario en localStorage y cookies
       if (data?.token && data?.user) {
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
+        Cookies.set("token", data.token, { path: "/" });
+        Cookies.set("user", JSON.stringify(data.user), { path: "/" });
+        console.log("Token y usuario guardados en localStorage y cookies");
         router.push("/aplicacion/home");
       } else {
         setError("Respuesta inválida del servidor");
+        console.log("Respuesta inválida del servidor", data);
       }
     } catch (err) {
       setError(err?.message || "Error al iniciar sesión");
+      console.log("Error al iniciar sesión", err);
     } finally {
       setLoading(false);
     }
