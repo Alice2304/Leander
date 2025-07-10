@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { MoreHorizontal, Edit, Phone, Video, Info, Send } from "lucide-react"
 import { socket, connectAndAuthenticate } from "@/lib/ws/notificactiones"
-import {API_BASE_IMG} from "@/lib/global"
+import {API_BASE_IMG, getUserId} from "@/lib/global"
 
 // Puedes obtener el token del usuario autenticado desde tu sistema de auth
 const getToken = () => {
@@ -27,9 +27,11 @@ const getToken = () => {
 // Utilidad para agrupar mensajes por usuario
 function groupMessages(received, emitted) {
   const grouped = {};
+  const myId = getUserId && getUserId(); // Obtener el ID del usuario autenticado
   if (received) {
     received.forEach(msg => {
       const emitter = msg.emitter;
+      if (emitter._id === myId) return; // Excluir mi propio usuario
       if (!grouped[emitter._id]) {
         grouped[emitter._id] = {
           id: emitter._id,
@@ -56,6 +58,7 @@ function groupMessages(received, emitted) {
   if (emitted) {
     emitted.forEach(msg => {
       const receiver = msg.receiver;
+      if (receiver._id === myId) return; // Excluir mi propio usuario
       if (!grouped[receiver._id]) {
         grouped[receiver._id] = {
           id: receiver._id,
@@ -132,14 +135,21 @@ function ContactList({ contacts, selectedContact, onSelect }) {
                   )}
                 </Avatar>
               </div>
-              <div className="flex-1 min-w-0 flex flex-col justify-center">
+              <div className="flex-1 min-w-0 flex flex-col justify-center relative">
                 <div className="flex items-center justify-between w-full">
-                  <p
-                    className="font-medium text-white truncate"
-                    title={contact.name}
-                  >
-                    {truncateName(contact.name)}
-                  </p>
+                  <div className="relative w-full flex items-center">
+                    <p
+                      className="font-medium text-white truncate"
+                      title={contact.name}
+                    >
+                      {truncateName(contact.name)}
+                    </p>
+                    {contact.hasNewMessage && (
+                      <span className="ml-2 absolute -top-2 left-full bg-green-500 text-white text-xs rounded-full px-2 py-0.5 min-w-[24px] text-center z-10 shadow-lg">
+                        Nuevo
+                      </span>
+                    )}
+                  </div>
                   {lastMsg && (
                     <span className="text-xs text-gray-400 ml-2 whitespace-nowrap">
                       {lastMsg.time}
@@ -152,9 +162,6 @@ function ContactList({ contacts, selectedContact, onSelect }) {
                   </span>
                 )}
               </div>
-              {contact.hasNewMessage && (
-                <span className="ml-2 bg-green-500 text-white text-xs rounded-full px-2 py-0.5 min-w-[24px] text-center">Nuevo</span>
-              )}
               {contact.active && (
                 <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-gray-800"></div>
               )}
@@ -267,6 +274,36 @@ function MessageInput({ value, onChange, onSend, loading }) {
   )
 }
 
+// Utilidad para crear un objeto contacto a partir de un usuario (emitter)
+ /**
+ * Crea un objeto de contacto a partir de la información de un usuario y un mensaje.
+ * @param {Object} user - Objeto usuario (emitter) con campos _id, name, surname, image, etc.
+ * @param {Object} msg - Mensaje recibido, usado para poblar el primer mensaje del contacto.
+ * @returns {Object} Objeto contacto listo para la lista de contactos.
+ */
+function createContactFromUser(user, msg) {
+  return {
+    id: user._id, // ID único del usuario
+    name: `${user.name || 'Nuevo'} ${user.surname || ''}`.trim(), // Nombre completo
+    avatar: (user.name && user.surname) ? (user.name[0] + (user.surname[0] || '')).toUpperCase() : '?', // Iniciales
+    color: "bg-orange-500", // Color por defecto
+    image: user.image || undefined, // Imagen de perfil si existe
+    active: false, // Estado de conexión
+    lastSeen: '', // Última vez visto (puede ser implementado)
+    status: '', // Estado personalizado (puede ser implementado)
+    hasNewMessage: true, // Indica si hay mensajes nuevos
+    messages: [
+      {
+        id: msg._id, // ID del mensaje
+        sender: `${user.name || 'Nuevo'} ${user.surname || ''}`.trim(), // Nombre del remitente
+        content: msg.text, // Contenido del mensaje
+        time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), // Hora formateada
+        isOwn: false // Indica si el mensaje es propio
+      }
+    ]
+  };
+}
+
 export default function ChatApp() {
   const [contacts, setContacts] = useState([])
   const [selectedContact, setSelectedContact] = useState(null)
@@ -363,91 +400,66 @@ export default function ChatApp() {
   // Conectar y escuchar mensajes nuevos por websocket
   useEffect(() => {
     connectAndAuthenticate();
+    /**
+     * Handler para mensajes nuevos recibidos por websocket.
+     * Si el contacto existe, agrega el mensaje; si no, crea un nuevo contacto con la info de msg.emitter.
+     */
     const handleNewMessage = (msg) => {
+      // DEBUG: Mostrar cómo llega el mensaje y los ids de contactos
+      console.log('Mensaje entrante (ws):', msg);
       setContacts(prevContacts => {
-        let found = false;
-        const updatedContacts = prevContacts.map(contact => {
-          if (contact.id === msg.emitter) {
-            found = true;
-            const alreadyExists = contact.messages.some(m => m.id === msg._id);
-            if (selectedContact && selectedContact.id === contact.id && !alreadyExists) {
-              setMessages(prevMsgs =>
-                prevMsgs.some(m => m.id === msg._id)
-                  ? prevMsgs
-                  : [
-                      ...prevMsgs,
-                      {
-                        id: msg._id,
-                        sender: contact.name,
-                        content: msg.text,
-                        time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                        isOwn: false
-                      }
-                    ]
-              );
-            }
-            return {
-              ...contact,
-              hasNewMessage: true,
-              messages: alreadyExists
-                ? contact.messages
-                : [
-                    ...contact.messages,
-                    {
-                      id: msg._id,
-                      sender: contact.name,
-                      content: msg.text,
-                      time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                      isOwn: false
-                    }
-                  ]
-            };
-          }
-          return contact;
-        });
-        if (!found) {
-          if (selectedContact && selectedContact.id === msg.emitter) {
-            setMessages(prevMsgs =>
-              prevMsgs.some(m => m.id === msg._id)
-                ? prevMsgs
-                : [
-                    ...prevMsgs,
-                    {
-                      id: msg._id,
-                      sender: "Nuevo contacto",
-                      content: msg.text,
-                      time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                      isOwn: false
-                    }
-                  ]
-            );
-          }
-          updatedContacts.unshift({
-            id: msg.emitter,
-            name: "Nuevo contacto",
-            avatar: "?",
-            color: "bg-orange-500",
-            active: false,
-            lastSeen: '',
-            status: '',
-            hasNewMessage: true,
-            messages: [{
+        // Mostrar todos los contactos actuales para depuración
+        console.log('Contactos actuales:', prevContacts);
+        // El id correcto para comparar es msg.emitter._id
+        const incomingId = msg.emitter && msg.emitter._id ? msg.emitter._id : undefined;
+        console.log('Comparando incomingId:', incomingId, 'con contactos:', prevContacts.map(c => c.id));
+        let foundIndex = prevContacts.findIndex(contact => contact.id === incomingId);
+        let updatedContacts = [...prevContacts];
+        if (foundIndex !== -1) {
+          // Ya existe el contacto, agregar el mensaje si no está
+          const contact = updatedContacts[foundIndex];
+          const alreadyExists = contact.messages.some(m => m.id === msg._id);
+          if (!alreadyExists) {
+            // Crear objeto mensaje y agregarlo al contacto
+            const newMsg = {
               id: msg._id,
-              sender: "Nuevo contacto",
+              sender: contact.name,
               content: msg.text,
               time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
               isOwn: false
-            }]
-          });
+            };
+            contact.messages = [...contact.messages, newMsg];
+            contact.hasNewMessage = true;
+            // Si el contacto no está al principio, lo movemos arriba
+            updatedContacts.splice(foundIndex, 1);
+            updatedContacts.unshift(contact);
+          }
+          // Si el contacto está seleccionado, actualizar mensajes en pantalla
+          if (selectedContact && selectedContact.id === contact.id && !alreadyExists) {
+            setMessages(prevMsgs =>
+              prevMsgs.some(m => m.id === msg._id)
+                ? prevMsgs
+                : [...prevMsgs, {
+                    id: msg._id,
+                    sender: contact.name,
+                    content: msg.text,
+                    time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    isOwn: false
+                  }]
+            );
+          }
+        } else if (msg.emitter && msg.emitter._id) {
+          // No existe el contacto, crear uno nuevo usando toda la info de msg.emitter
+          updatedContacts.unshift(createContactFromUser(msg.emitter, msg));
         }
-        return [...updatedContacts];
+        return updatedContacts;
       });
     };
     socket.on("newMessage", handleNewMessage);
     return () => {
       socket.off("newMessage", handleNewMessage);
     };
-  }, [selectedContact]);
+  }, [selectedContact, userList]);
 
   // Modal para seleccionar usuario
   return (
