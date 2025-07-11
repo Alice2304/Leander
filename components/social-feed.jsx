@@ -14,6 +14,8 @@ import { useState, useRef, useEffect } from "react"
 // API & helpers
 import { createPublication, fetchPublications, likePublication, unlikePublication, updatePublication, deletePublication, addCommentToPublication, updateCommentOnPublication, deleteCommentFromPublication } from "../lib/fetch/publications"
 import { getUser, getUserId, API_BASE_IMG } from "../lib/global"
+import { followUser, unfollowUser } from "../lib/fetch/user-follow"
+import { fetchFollowing } from "../lib/fetch/user-follow"
 import { timeAgo } from "../lib/helpers/timeAgo"
 // UI Components
 import { Card, CardContent } from "@/components/ui/card"
@@ -141,6 +143,7 @@ function CommentItem({ c, commentPost, fetchPublications, setPostComments, updat
 export default function SocialFeed() {
   // --- Estados globales ---
   const [posts, setPosts] = useState([]); // Lista de publicaciones
+  const [following, setFollowing] = useState([]); // Lista de usuarios que sigo
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false); // Modal crear publicación
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false); // Modal editar publicación
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false); // Modal eliminar publicación
@@ -157,7 +160,19 @@ export default function SocialFeed() {
   // Carga inicial de publicaciones al montar el componente
   useEffect(() => {
     loadPosts();
+    fetchFollowingUsers();
   }, []);
+
+  // Cargar la lista de usuarios que sigo
+  async function fetchFollowingUsers() {
+    try {
+      const data = await fetchFollowing();
+      // data puede ser { following: [...] } o directamente un array
+      setFollowing(data.following || data);
+    } catch (error) {
+      setFollowing([]);
+    }
+  }
 
   // --- Funciones de negocio ---
   /**
@@ -524,7 +539,47 @@ export default function SocialFeed() {
                 className="w-11 h-11 rounded-full object-cover border-2 border-slate-600"
               />
               <div className="flex-1">
-                <h3 className="font-semibold text-slate-100">{post.user.name}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-slate-100">{post.user.name}</h3>
+                  {getUserId() && getUserId() !== post.user._id && (
+                    following.some(u => u._id === post.user._id) ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-red-400 border-red-400 hover:bg-red-900 hover:text-white"
+                        onClick={async () => {
+                          if (!window.confirm("¿Seguro que quieres dejar de seguir a este usuario?")) return;
+                          try {
+                            await unfollowUser(post.user._id);
+                            await loadPosts();
+                            await fetchFollowingUsers();
+                          } catch (e) {
+                            alert("No se pudo dejar de seguir");
+                          }
+                        }}
+                      >
+                        Dejar de seguir
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-green-400 border-green-400 hover:bg-green-900 hover:text-white"
+                        onClick={async () => {
+                          try {
+                            await followUser(post.user._id);
+                            await loadPosts();
+                            await fetchFollowingUsers();
+                          } catch (e) {
+                            alert("No se pudo seguir al usuario");
+                          }
+                        }}
+                      >
+                        Seguir
+                      </Button>
+                    )
+                  )}
+                </div>
                 <p className="text-sm text-slate-400">
                   {post.user.username} • {timeAgo(post.created_at)}
                 </p>
