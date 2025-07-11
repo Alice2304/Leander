@@ -19,7 +19,7 @@ import {API_BASE_IMG, getUserId} from "@/lib/global"
 // Puedes obtener el token del usuario autenticado desde tu sistema de auth
 const getToken = () => {
   if (typeof window !== 'undefined') {
-	return localStorage.getItem('token') || ''
+  return localStorage.getItem('token') || ''
   }
   return ''
 }
@@ -188,11 +188,6 @@ function ChatHeader({ contact }) {
           <h3 className="font-medium text-white">{contact.name}</h3>
           {contact.lastSeen && <p className="text-sm text-gray-400">{contact.lastSeen}</p>}
         </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white"><Phone className="h-4 w-4" /></Button>
-        <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white"><Video className="h-4 w-4" /></Button>
-        <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white"><Info className="h-4 w-4" /></Button>
       </div>
     </div>
   )
@@ -463,90 +458,90 @@ export default function ChatApp() {
 
   // Modal para seleccionar usuario
   return (
-	<>
-	  <Dialog open={showUserModal} onOpenChange={setShowUserModal}>
-		<DialogContent className="max-w-md">
-		  <DialogHeader>
-			<DialogTitle>Selecciona un usuario para nuevo mensaje</DialogTitle>
-		  </DialogHeader>
-		  {loadingUsers ? (
-			<div className="text-center py-4">Cargando usuarios...</div>
-		  ) : (
-			<div className="max-h-80 overflow-y-auto">
-			  {userList.length === 0 ? (
-				<div className="text-gray-400 text-center">No hay usuarios disponibles</div>
-			  ) : (
-				userList.map(user => (
-				  <div
-					key={user._id}
-					className="flex items-center gap-3 p-2 hover:bg-gray-100/10 rounded-lg cursor-pointer"
-					onClick={() => {
-					  setShowUserModal(false)
-					  handleSelectContact({
-						id: user._id,
-						name: `${user.name} ${user.surname}`,
-						avatar: (user.name[0] + (user.surname ? user.surname[0] : '')).toUpperCase(),
-						color: "bg-orange-500",
-						active: false,
-						lastSeen: '',
-						status: '',
-						messages: []
-					  })
-					}}
-				  >
-					<Avatar className="h-8 w-8">
-					  <AvatarFallback className="bg-orange-500 text-white text-xs">
-						{(user.name[0] + (user.surname ? user.surname[0] : '')).toUpperCase()}
-					  </AvatarFallback>
-					</Avatar>
-					<span className="font-medium text-white">{user.name} {user.surname}</span>
-				  </div>
-				))
-			  )}
-			</div>
-		  )}
-		</DialogContent>
-	  </Dialog>
-	  <div className="flex h-screen w-full bg-gray-900 text-white rounded-lg overflow-hidden flex-col md:flex-row">
-		{/* Sidebar */}
-		<div className="w-full md:w-80 bg-gray-800 border-r border-gray-700 flex-shrink-0">
-		  {/* Header */}
-		  <div className="flex items-center justify-between p-4 border-b border-gray-700">
-			<h2 className="text-lg font-semibold">Chats ({contacts.length})</h2>
-			<div className="flex items-center gap-2">
-			  <Button
-				variant="ghost"
-				size="icon"
-				className="text-gray-400 hover:text-white"
-				onClick={async () => {
-				  setShowUserModal(true)
-				  setLoadingUsers(true)
-				  try {
-					const res = await fetchUsers()
-					setUserList(res.users || [])
-				  } catch {
-					setUserList([])
-				  }
-				  setLoadingUsers(false)
-				}}
-			  >
-				<Edit className="h-4 w-4" />
-			  </Button>
-			  <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
-				<MoreHorizontal className="h-4 w-4" />
-			  </Button>
-			</div>
-		  </div>
+  <>
+    <Dialog open={showUserModal} onOpenChange={setShowUserModal}>
+    <DialogContent className="max-w-md">
+      <DialogHeader>
+      <DialogTitle>Selecciona un usuario para nuevo mensaje</DialogTitle>
+      </DialogHeader>
+      {loadingUsers ? (
+      <div className="text-center py-4">Cargando usuarios...</div>
+      ) : (
+      <div className="max-h-80 overflow-y-auto">
+        {userList.length === 0 ? (
+        <div className="text-gray-400 text-center">No hay usuarios disponibles</div>
+        ) : (
+        userList.map(user => (
+          <div
+          key={user._id}
+          className="flex items-center gap-3 p-2 hover:bg-gray-100/10 rounded-lg cursor-pointer"
+          onClick={() => {
+            setShowUserModal(false)
+            handleSelectContact({
+            id: user._id,
+            name: `${user.name} ${user.surname}`,
+            avatar: (user.name[0] + (user.surname ? user.surname[0] : '')).toUpperCase(),
+            color: "bg-orange-500",
+            active: false,
+            lastSeen: '',
+            status: '',
+            messages: []
+            })
+          }}
+          >
+          <Avatar className="h-8 w-8">
+            <AvatarFallback className="bg-orange-500 text-white text-xs">
+            {(user.name[0] + (user.surname ? user.surname[0] : '')).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <span className="font-medium text-white">{user.name} {user.surname}</span>
+          </div>
+        ))
+        )}
+      </div>
+      )}
+    </DialogContent>
+    </Dialog>
+    <div className="flex h-screen w-full bg-gray-900 text-white rounded-lg overflow-hidden flex-col md:flex-row">
+    {/* Sidebar */}
+    <div className="w-full md:w-80 bg-gray-800 border-r border-gray-700 flex-shrink-0">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b border-gray-700">
+      <h2 className="text-lg font-semibold">Chats ({contacts.length})</h2>
+      <div className="flex items-center gap-2">
+        <Button
+        variant="ghost"
+        size="icon"
+        className="text-gray-400 hover:text-white"
+        onClick={async () => {
+          setShowUserModal(true)
+          setLoadingUsers(true)
+          try {
+          const res = await fetchUsers()
+          setUserList(res.users || [])
+          } catch {
+          setUserList([])
+          }
+          setLoadingUsers(false)
+        }}
+        >
+        <Edit className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
+        <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </div>
+      </div>
 
-		  <ContactList contacts={contacts} selectedContact={selectedContact} onSelect={handleSelectContact} />
-		</div>
-		{/* Main Chat Area */}
-		<div className="flex-1 flex flex-col min-h-0 w-full max-w-full">
+      <ContactList contacts={contacts} selectedContact={selectedContact} onSelect={handleSelectContact} />
+    </div>
+    {/* Main Chat Area */}
+    <div className="flex-1 flex flex-col min-h-0 w-full max-w-full">
           <ChatHeader contact={selectedContact} />
           <MessageList messages={messages} selectedContact={selectedContact} />
           <MessageInput value={messageInput} onChange={e => setMessageInput(e.target.value)} onSend={handleSend} loading={loading} />
         </div>
-	  </div>
-	</>
+    </div>
+  </>
   )
 }

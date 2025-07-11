@@ -97,36 +97,38 @@ const EventsSection = () => {
   }
 
   const handleCreateEvent = async () => {
-    if (newEvent.title && newEvent.datetime && newEvent.location) {
-      try {
-        const { createEvent, fetchEvents } = await import("../lib/fetch/events");
-        // Separar fecha y hora de datetime-local
-        const [date, time] = newEvent.datetime.split("T");
-        await createEvent({
-          title: newEvent.title,
-          description: newEvent.description,
-          date: newEvent.datetime,
-          time: time,
-          location: newEvent.location,
-        });
-        // Recargar eventos después de crear uno nuevo
-        const data = await fetchEvents();
-        setEvents(data.events || data);
-        setNewEvent({
-          title: "",
-          description: "",
-          datetime: "",
-          location: "",
-          attendees: 0,
-          category: "conferencia",
-          featured: false,
-          price: "",
-        });
-        setIsCreateDialogOpen(false);
-        alert("¡Evento creado exitosamente!");
-      } catch (error) {
-        alert("Error al crear el evento");
-      }
+    if (!newEvent.title || !newEvent.datetime || !newEvent.location) {
+      alert("Por favor, completa todos los campos requeridos: título, fecha/hora y ubicación.");
+      return;
+    }
+    try {
+      const { createEvent, fetchEvents } = await import("../lib/fetch/events");
+      // Separar fecha y hora de datetime-local
+      const [date, time] = newEvent.datetime.split("T");
+      await createEvent({
+        title: newEvent.title,
+        description: newEvent.description,
+        date: newEvent.datetime,
+        time: time,
+        location: newEvent.location,
+      });
+      // Recargar eventos después de crear uno nuevo
+      const data = await fetchEvents();
+      setEvents(data.events || data);
+      setNewEvent({
+        title: "",
+        description: "",
+        datetime: "",
+        location: "",
+        attendees: 0,
+        category: "conferencia",
+        featured: false,
+        price: "",
+      });
+      setIsCreateDialogOpen(false);
+      alert("¡Evento creado exitosamente!");
+    } catch (error) {
+      alert("Error al crear el evento");
     }
   }
 
@@ -175,61 +177,64 @@ const EventsSection = () => {
               Descubre eventos increíbles, conecta con profesionales y expande tus conocimientos
             </p>
           </div>
-          <button
-            onClick={() => setIsCreateDialogOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center mx-auto"
-            style={{ position: 'absolute', right: 0, top: 0 }}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Crear evento
-          </button>
+          {isAdmin() && (
+            <button
+              onClick={() => setIsCreateDialogOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center mx-auto"
+              style={{ position: 'absolute', right: 0, top: 0 }}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Crear evento
+            </button>
+          )}
         </div>
 
-        {/* Dialog para crear evento */}
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-lg">
-            <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-              <DialogTitle className="text-xl font-bold">Crear evento</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <input
-                type="text"
-                value={newEvent.title}
-                onChange={e => setNewEvent({ ...newEvent, title: e.target.value })}
-                className="w-full bg-transparent border-b border-slate-600 text-white text-lg focus:outline-none mb-2 p-1"
-                placeholder="Título del evento"
-              />
-              <Textarea
-                value={newEvent.description}
-                onChange={e => setNewEvent({ ...newEvent, description: e.target.value })}
-                className="bg-transparent border-none text-white text-lg resize-none focus:ring-0 focus:outline-none p-0"
-                placeholder="Descripción"
-                rows={2}
-              />
-              <input
-                type="datetime-local"
-                value={newEvent.datetime}
-                onChange={e => setNewEvent({ ...newEvent, datetime: e.target.value })}
-                className="w-full bg-transparent border-b border-slate-600 text-white focus:outline-none p-1"
-                placeholder="Fecha y hora"
-              />
-              <input
-                type="text"
-                value={newEvent.location}
-                onChange={e => setNewEvent({ ...newEvent, location: e.target.value })}
-                className="w-full bg-transparent border-b border-slate-600 text-white focus:outline-none p-1"
-                placeholder="Ubicación"
-              />
-              <button
-                onClick={handleCreateEvent}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg mt-2"
-                disabled={!newEvent.title || !newEvent.datetime || !newEvent.location}
-              >
-                Crear evento
-              </button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        {/* Dialog para crear evento solo para admin */}
+        {isAdmin() && (
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-lg">
+              <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                <DialogTitle className="text-xl font-bold">Crear evento</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <input
+                  type="text"
+                  value={newEvent.title}
+                  onChange={e => setNewEvent({ ...newEvent, title: e.target.value })}
+                  className="w-full bg-transparent border-b border-slate-600 text-white text-lg focus:outline-none mb-2 p-1"
+                  placeholder="Título del evento"
+                />
+                <Textarea
+                  value={newEvent.description}
+                  onChange={e => setNewEvent({ ...newEvent, description: e.target.value })}
+                  className="bg-transparent border-none text-white text-lg resize-none focus:ring-0 focus:outline-none p-0"
+                  placeholder="Descripción"
+                  rows={2}
+                />
+                <input
+                  type="datetime-local"
+                  value={newEvent.datetime}
+                  onChange={e => setNewEvent({ ...newEvent, datetime: e.target.value })}
+                  className="w-full bg-transparent border-b border-slate-600 text-white focus:outline-none p-1"
+                  placeholder="Fecha y hora"
+                />
+                <input
+                  type="text"
+                  value={newEvent.location}
+                  onChange={e => setNewEvent({ ...newEvent, location: e.target.value })}
+                  className="w-full bg-transparent border-b border-slate-600 text-white focus:outline-none p-1"
+                  placeholder="Ubicación"
+                />
+                <button
+                  onClick={handleCreateEvent}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg mt-2"
+                >
+                  Crear evento
+                </button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
 
         {/* Events Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -373,6 +378,20 @@ const EventsSection = () => {
                       ? "Reservado (Cancelar)"
                       : "Reservar"}
                   </button>
+                  {/* Botón eliminar evento solo para admin */}
+                  {isAdmin() && (
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        setEventIdToDelete(event._id);
+                        setIsConfirmDialogOpen(true);
+                      }}
+                      className="ml-2 bg-black bg-opacity-50 rounded-full p-1 hover:bg-opacity-70 transition-all modal-ignore-click"
+                      title="Eliminar evento"
+                    >
+                      <X className="w-4 h-4 text-white" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

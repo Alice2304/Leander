@@ -16,7 +16,7 @@ export default function Component() {
       content: "Hi, how can I help you today?",
       timestamp: "now",
     },
-    {
+     {
       id: 2,
       sender: "user",
       content: "Hey, I'm having trouble with my account.",
@@ -81,7 +81,7 @@ export default function Component() {
   return (
     <div className="w-full max-w-md mx-auto bg-gray-900 text-white rounded-lg overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-700">
+      <div className="flex items-center p-4 border-b border-gray-700">
         <div className="flex items-center space-x-3">
           <Avatar className="w-10 h-10">
             <AvatarImage src="/placeholder.svg?height=40&width=40" alt="Sofia Davis" />
@@ -92,9 +92,6 @@ export default function Component() {
             <p className="text-sm text-gray-400">m@example.com</p>
           </div>
         </div>
-        <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white hover:bg-gray-700">
-          <Plus className="w-5 h-5" />
-        </Button>
       </div>
 
       {/* Messages */}
