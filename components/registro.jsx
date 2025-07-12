@@ -57,6 +57,12 @@ export default function Registro() {
     setLoading(true)
     setError("")
     setSuccess(false)
+    // Validar que la imagen esté presente
+    if (!profileFile) {
+      setError("La imagen de perfil es obligatoria.")
+      setLoading(false)
+      return
+    }
     try {
       const params = {
         name: formData.fullName,
@@ -64,7 +70,7 @@ export default function Registro() {
         nick: formData.username,
         email: formData.email,
         password: formData.password,
-        image: profileFile || null,
+        image: profileFile,
       }
       await registerUser(params)
       setSuccess(true)

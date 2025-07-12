@@ -24,6 +24,7 @@ export default function EditProfileModal({
   })
 
   const [profileImage, setProfileImage] = useState(initialData.profileImage)
+  const [profileImageFile, setProfileImageFile] = useState(null)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [errors, setErrors] = useState({})
@@ -55,6 +56,7 @@ export default function EditProfileModal({
       // Crear URL temporal para previsualización
       const imageUrl = URL.createObjectURL(file)
       setProfileImage(imageUrl)
+      setProfileImageFile(file)
 
       // Limpiar error de imagen si existía
       if (errors.image) {
@@ -92,12 +94,79 @@ export default function EditProfileModal({
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSave = () => {
-    if (validateForm()) {
-      console.log("Guardando cambios:", { ...formData, profileImage })
-      // Aquí iría la lógica para guardar los cambios
-      if (onClose) onClose()
+  // Importar helpers globales
+  // eslint-disable-next-line
+  const { getAuthToken, getUserId, API_BASE_URL } = require("@/lib/global.js")
+
+  const handleSave = async () => {
+    if (!validateForm()) return;
+
+    const token = getAuthToken();
+    const userId = getUserId();
+    let updatedUser = null;
+
+    // 1. Actualizar datos básicos (nombre/email/contraseña)
+    try {
+      // Solo enviar campos que cambiaron
+      const body = {};
+      if (formData.username !== initialData.username) body.nick = formData.username;
+      if (formData.email !== initialData.email) body.email = formData.email;
+      if (formData.password) body.password = formData.password;
+
+      if (Object.keys(body).length > 0) {
+        const res = await fetch(`${API_BASE_URL}/user/update/${userId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: token ? `Bearer ${token}` : "",
+          },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error("Error al actualizar datos de usuario");
+        updatedUser = await res.json();
+      }
+    } catch (err) {
+      setErrors((prev) => ({ ...prev, general: err.message || "Error al actualizar datos" }));
+      return;
     }
+
+    // 2. Subir imagen si fue cambiada
+    let newImageUrl = null;
+    if (profileImageFile) {
+      try {
+        const formDataImg = new FormData();
+        formDataImg.append("image", profileImageFile);
+        const resImg = await fetch(`${API_BASE_URL}/upload-image-user/${userId}`, {
+          method: "POST",
+          headers: {
+            Authorization: token ? `Bearer ${token}` : "",
+          },
+          body: formDataImg,
+        });
+        if (!resImg.ok) throw new Error("Error al subir imagen");
+        const dataImg = await resImg.json();
+        newImageUrl = dataImg.user?.image ? dataImg.user.image : null;
+        // Actualizar imagen en el modal
+        if (newImageUrl) setProfileImage(newImageUrl);
+      } catch (err) {
+        setErrors((prev) => ({ ...prev, image: err.message || "Error al subir imagen" }));
+        return;
+      }
+    }
+
+    // 3. Actualizar localStorage (si hay cambios)
+    try {
+      let user = JSON.parse(localStorage.getItem("user"));
+      if (!user) user = {};
+      if (formData.username !== initialData.username) user.name = formData.username;
+      if (formData.email !== initialData.email) user.email = formData.email;
+      if (newImageUrl) user.image = newImageUrl;
+      localStorage.setItem("user", JSON.stringify(user));
+    } catch (e) {}
+
+    // Mostrar alerta de éxito y advertencia de cerrar sesión
+    window.alert("¡Perfil actualizado correctamente!\nPor favor, cierra sesión y vuelve a iniciar para que los cambios tengan efecto.");
+    if (onClose) onClose();
   }
 
   if (!isOpen) return null

@@ -1,7 +1,7 @@
 "use client"
 import * as React from "react"
 import { useEffect, useState } from "react";
-import { getUserName, getUserEmail, getUserImage, API_BASE_IMG } from "@/lib/global";
+import { getUserName, getUserEmail, getUserImage, API_BASE_IMG, getUserNick } from "@/lib/global";
 
 import { NavMain } from "@/components/nav-main"
 import { NavProjects } from "@/components/nav-projects"
@@ -28,7 +28,7 @@ export function AppSidebar({
       avatar = API_BASE_IMG.replace(/\/$/, "") + avatar;
     }
     setUser({
-      name: getUserName() || "",
+      name: getUserNick() || "",
       email: getUserEmail() || "",
       avatar,
     });

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { isAdmin } from "../lib/global";
+import { isAdmin,getUserNick} from "../lib/global";
 
 export default function Anuncios() {
   const [ads, setAds] = useState([])
@@ -196,22 +196,7 @@ export default function Anuncios() {
             </DialogHeader>
 
             <div className="space-y-4">
-              {/* User Profile Section */}
-              <div className="flex items-center space-x-3 pb-4 border-b border-gray-700">
-                <img
-                  src={newAd.profileImage || "/placeholder.svg?height=40&width=40"}
-                  alt="Profile"
-                  className="w-10 h-10 rounded-full object-cover"
-                />
-                <div>
-                  <h3 className="text-white font-semibold">Usuario</h3>
-                  <div className="flex items-center space-x-1 text-sm text-gray-400">
-                    <Users className="w-3 h-3" />
-                    <span>Público</span>
-                  </div>
-                </div>
-              </div>
-
+           
               {/* Main Content Area */}
 
               <div className="space-y-4">
@@ -393,11 +378,7 @@ export default function Anuncios() {
               {/* Content */}
               <div className="p-4">
                 <div className="flex items-center space-x-3 mb-3">
-                  <img
-                    src={ad.profileImage || "/placeholder.svg?height=40&width=40"}
-                    alt={`${ad.name} profile`}
-                    className="w-10 h-10 rounded-full object-cover"
-                  />
+                 
                   <div>
                     <h3 className="text-white font-semibold text-lg">{ad.title}</h3>
                   </div>

@@ -13,7 +13,7 @@
 import { useState, useRef, useEffect } from "react"
 // API & helpers
 import { createPublication, fetchPublications, likePublication, unlikePublication, updatePublication, deletePublication, addCommentToPublication, updateCommentOnPublication, deleteCommentFromPublication } from "../lib/fetch/publications"
-import { getUser, getUserId, API_BASE_IMG } from "../lib/global"
+import { getUser, getUserId, API_BASE_IMG, getUserName, getUserNick, getUserImage } from "../lib/global"
 import { followUser, unfollowUser } from "../lib/fetch/user-follow"
 import { fetchFollowing } from "../lib/fetch/user-follow"
 import { timeAgo } from "../lib/helpers/timeAgo"
@@ -30,9 +30,9 @@ const initialNewPost = {
   description: "",
   image: "",
   user: {
-    name: "Usuario",
-    avatar: "",
-    username: "@usuario"
+    name: getUserName() || "Usuario",
+    avatar: API_BASE_IMG+getUserImage() || "",
+    username: getUserNick() || "@usuario"
   },
   likes: 0,
   comments: 0,
@@ -295,7 +295,7 @@ export default function SocialFeed() {
                 className="w-10 h-10 rounded-full object-cover"
               />
               <div>
-                <h3 className="text-white font-semibold">{newPost.user.name}</h3>
+                <h3 className="text-white font-semibold">{newPost.user.username}</h3>
                 <div className="flex items-center space-x-1 text-sm text-slate-400">
                   <span>Público</span>
                 </div>
