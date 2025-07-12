@@ -542,7 +542,15 @@ export default function SocialFeed() {
           )}
           {/* Imagen principal de la publicación */}
           <div className="relative">
-            <img src={post.files.length > 0 ? API_BASE_IMG + '/' + post.files[0].path : null} alt={post.title} className="w-full h-64 object-cover" />
+            <img
+              src={
+                post.files && post.files.length > 0
+                  ? API_BASE_IMG + '/' + post.files[0].path
+                  : "/descarga.png"
+              }
+              alt={post.title}
+              className="w-full h-64 object-cover"
+            />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent"></div>
           </div>
           <CardContent className="p-5">
