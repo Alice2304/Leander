@@ -155,6 +155,8 @@ export default function SocialFeed() {
   const [commentPost, setCommentPost] = useState(null); // Post seleccionado para comentarios
   const [newComment, setNewComment] = useState(""); // Texto del nuevo comentario
   const imageInputRef = useRef(null); // Ref para input de imagen
+  // Nuevo estado para spinner de publicación
+  const [isPublishing, setIsPublishing] = useState(false);
 
   // --- Efectos ---
   // Carga inicial de publicaciones al montar el componente
@@ -195,6 +197,7 @@ export default function SocialFeed() {
    */
   async function handleCreatePost() {
     if (newPost.title && newPost.description) {
+      setIsPublishing(true);
       try {
         await createPublication({
           title: newPost.title,
@@ -207,6 +210,8 @@ export default function SocialFeed() {
         alert("¡Publicación creada exitosamente!");
       } catch (error) {
         alert("Error al crear la publicación");
+      } finally {
+        setIsPublishing(false);
       }
     }
   }
@@ -364,10 +369,20 @@ export default function SocialFeed() {
             />
             <Button
               onClick={handleCreatePost}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-              disabled={!newPost.title || !newPost.description}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center"
+              disabled={!newPost.title || !newPost.description || isPublishing}
             >
-              Publicar
+              {isPublishing ? (
+                <>
+                  <svg className="animate-spin mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                  </svg>
+                  Publicando...
+                </>
+              ) : (
+                "Publicar"
+              )}
             </Button>
           </div>
         </DialogContent>

@@ -36,6 +36,8 @@ export default function Anuncios() {
   })
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  // Estado para spinner de publicación de anuncio
+  const [isPublishingAd, setIsPublishingAd] = useState(false)
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false)
   const [adToUpdate, setAdToUpdate] = useState(null)
 
@@ -88,6 +90,7 @@ export default function Anuncios() {
 
   const handleCreateAd = async () => {
     if (newAd.title && newAd.description) {
+      setIsPublishingAd(true);
       try {
         const { createAnnouncement, fetchAnnouncements } = await import("../lib/fetch/announcements");
         await createAnnouncement({
@@ -109,6 +112,8 @@ export default function Anuncios() {
         alert("¡Anuncio creado exitosamente!");
       } catch (error) {
         alert("Error al crear el anuncio");
+      } finally {
+        setIsPublishingAd(false);
       }
     }
   }
@@ -194,9 +199,7 @@ export default function Anuncios() {
             <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
               <DialogTitle className="text-xl font-bold">Crear anuncio</DialogTitle>
             </DialogHeader>
-
             <div className="space-y-4">
-           
               {/* Main Content Area */}
 
               <div className="space-y-4">
@@ -250,10 +253,20 @@ export default function Anuncios() {
               </div>
               <Button
                 onClick={handleCreateAd}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                disabled={!newAd.title || !newAd.description}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center"
+                disabled={!newAd.title || !newAd.description || isPublishingAd}
               >
-                Publicar
+                {isPublishingAd ? (
+                  <>
+                    <svg className="animate-spin mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                    </svg>
+                    Publicando...
+                  </>
+                ) : (
+                  "Publicar"
+                )}
               </Button>
             </div>
           </DialogContent>
